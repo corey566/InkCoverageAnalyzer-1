@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertDocumentSchema, insertAnalysisSchema } from "@shared/schema";
@@ -6,6 +6,10 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { createReadStream } from "fs";
+
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -96,7 +100,7 @@ async function analyzeDocument(filePath: string, mimeType: string): Promise<{
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Upload document endpoint
-  app.post("/api/documents/upload", upload.single('file'), async (req, res) => {
+  app.post("/api/documents/upload", upload.single('file'), async (req: MulterRequest, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
