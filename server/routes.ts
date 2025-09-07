@@ -2,6 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertDocumentSchema, insertAnalysisSchema } from "@shared/schema";
+import { DocumentAnalysisEngine } from "./analysis-engine";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -10,6 +11,9 @@ import { createReadStream } from "fs";
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
+
+// Initialize the analysis engine
+const analysisEngine = new DocumentAnalysisEngine();
 
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), 'uploads');
@@ -43,60 +47,6 @@ const upload = multer({
   }
 });
 
-// Mock ink coverage analysis function
-async function analyzeDocument(filePath: string, mimeType: string): Promise<{
-  totalPages: number;
-  overallCoverage: { cyan: number; magenta: number; yellow: number; black: number };
-  pageBreakdown: Array<{
-    page: number;
-    cyan: number;
-    magenta: number;
-    yellow: number;
-    black: number;
-    total: number;
-  }>;
-}> {
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Mock analysis results - in production, this would use Ghostscript or similar
-  const totalPages = Math.floor(Math.random() * 10) + 1;
-  const pageBreakdown = [];
-  let totalCyan = 0, totalMagenta = 0, totalYellow = 0, totalBlack = 0;
-  
-  for (let i = 1; i <= totalPages; i++) {
-    const cyan = Math.random() * 40 + 5; // 5-45%
-    const magenta = Math.random() * 35 + 5; // 5-40%
-    const yellow = Math.random() * 45 + 10; // 10-55%
-    const black = Math.random() * 50 + 15; // 15-65%
-    const total = cyan + magenta + yellow + black;
-    
-    pageBreakdown.push({
-      page: i,
-      cyan: Math.round(cyan * 10) / 10,
-      magenta: Math.round(magenta * 10) / 10,
-      yellow: Math.round(yellow * 10) / 10,
-      black: Math.round(black * 10) / 10,
-      total: Math.round(total * 10) / 10
-    });
-    
-    totalCyan += cyan;
-    totalMagenta += magenta;
-    totalYellow += yellow;
-    totalBlack += black;
-  }
-  
-  return {
-    totalPages,
-    overallCoverage: {
-      cyan: Math.round((totalCyan / totalPages) * 10) / 10,
-      magenta: Math.round((totalMagenta / totalPages) * 10) / 10,
-      yellow: Math.round((totalYellow / totalPages) * 10) / 10,
-      black: Math.round((totalBlack / totalPages) * 10) / 10
-    },
-    pageBreakdown
-  };
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Upload document endpoint
@@ -150,8 +100,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       setImmediate(async () => {
         try {
           const filePath = path.join(uploadDir, document.filename);
-          const results = await analyzeDocument(filePath, document.mimeType);
+          console.log(`Starting real analysis for ${document.originalName} (${document.mimeType})`);
+          const results = await analysisEngine.analyzeDocument(filePath, document.mimeType);
           
+          console.log(`Analysis completed for ${document.originalName}:`, results);
           await storage.updateAnalysis(analysis.id, {
             status: "completed",
             totalPages: results.totalPages,
