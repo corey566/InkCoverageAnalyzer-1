@@ -61,27 +61,41 @@ export class DocumentAnalysisEngine {
     const tempDir = path.join(process.cwd(), 'temp');
     await fs.mkdir(tempDir, { recursive: true });
     
-    const tempCMYKPath = path.join(tempDir, `cmyk_${Date.now()}.tiff`);
-    
     try {
-      // Convert entire PDF to CMYK TIFF (preserves color separation)
-      console.log('Converting PDF directly to CMYK...');
-      await execAsync(`convert "${filePath}" -colorspace CMYK "${tempCMYKPath}"`);
-      
-      // Get page count from converted TIFF
-      const { stdout: pageCountStr } = await execAsync(`identify "${tempCMYKPath}" | wc -l`);
-      const pageCount = parseInt(pageCountStr.trim());
-      
+      // Get page count first
+      const pageCount = await this.getPDFPageCount(filePath);
       const pageBreakdown: PageAnalysis[] = [];
       
-      // Analyze each page from CMYK TIFF
-      for (let pageNum = 0; pageNum < pageCount; pageNum++) {
-        const coverage = await this.analyzeCMYKPage(tempCMYKPath, pageNum);
-        pageBreakdown.push({
-          page: pageNum + 1,
-          ...coverage,
-          total: coverage.cyan + coverage.magenta + coverage.yellow + coverage.black
-        });
+      // Analyze each page individually for better accuracy
+      for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+        console.log(`Processing page ${pageNum}/${pageCount}...`);
+        
+        const tempPagePDF = path.join(tempDir, `page_${pageNum}_${Date.now()}.pdf`);
+        const tempPageCMYK = path.join(tempDir, `page_${pageNum}_cmyk_${Date.now()}.tiff`);
+        
+        try {
+          // Extract single page
+          await execAsync(`gs -dSAFER -dBATCH -dNOPAUSE -dQuiet -sDEVICE=pdfwrite -dFirstPage=${pageNum} -dLastPage=${pageNum} -sOutputFile="${tempPagePDF}" "${filePath}"`);
+          
+          // Convert page to high-resolution CMYK TIFF for accurate analysis
+          await execAsync(`convert -density 300 "${tempPagePDF}" -colorspace CMYK -compress none "${tempPageCMYK}"`);
+          
+          const coverage = await this.analyzePixelLevelCMYK(tempPageCMYK);
+          pageBreakdown.push({
+            page: pageNum,
+            ...coverage,
+            total: coverage.cyan + coverage.magenta + coverage.yellow + coverage.black
+          });
+          
+        } finally {
+          // Clean up page files
+          try {
+            await fs.unlink(tempPagePDF);
+            await fs.unlink(tempPageCMYK);
+          } catch (error) {
+            console.warn('Failed to clean up page files:', error);
+          }
+        }
       }
 
       // Calculate overall coverage
@@ -92,13 +106,31 @@ export class DocumentAnalysisEngine {
         overallCoverage,
         pageBreakdown
       };
-    } finally {
-      // Clean up temp file
-      try {
-        await fs.unlink(tempCMYKPath);
-      } catch (error) {
-        console.warn('Failed to clean up temp CMYK file:', tempCMYKPath);
-      }
+    } catch (error) {
+      console.error('Direct PDF analysis failed:', error);
+      throw error;
+    }
+  }
+
+  private async analyzePixelLevelCMYK(cmykImagePath: string): Promise<CMYKCoverage> {
+    try {
+      console.log(`Performing pixel-level CMYK analysis...`);
+      
+      // Analyze each CMYK channel with advanced pixel counting
+      const cyan = await this.getChannelCoverage(cmykImagePath, 0, 0);
+      const magenta = await this.getChannelCoverage(cmykImagePath, 1, 0);
+      const yellow = await this.getChannelCoverage(cmykImagePath, 2, 0);
+      const black = await this.getChannelCoverage(cmykImagePath, 3, 0);
+      
+      return {
+        cyan: Math.round(cyan * 10) / 10,
+        magenta: Math.round(magenta * 10) / 10,
+        yellow: Math.round(yellow * 10) / 10,
+        black: Math.round(black * 10) / 10
+      };
+    } catch (error) {
+      console.error('Failed to analyze pixel-level CMYK:', error);
+      return { cyan: 0, magenta: 0, yellow: 0, black: 0 };
     }
   }
 
@@ -268,15 +300,30 @@ export class DocumentAnalysisEngine {
 
   private async getChannelCoverage(cmykImagePath: string, channel: number, totalPixels: number): Promise<number> {
     try {
-      // Extract channel and calculate actual ink coverage
-      // For CMYK, we want to measure how much ink is present, not absent
-      const { stdout } = await execAsync(`convert "${cmykImagePath}" -channel ${['C', 'M', 'Y', 'K'][channel]} -separate -format "%[fx:mean]" info:`);
-      const coverage = parseFloat(stdout.trim()) * 100;
+      const channelNames = ['Cyan', 'Magenta', 'Yellow', 'Black'];
+      const channelLetters = ['C', 'M', 'Y', 'K'];
       
-      console.log(`${['Cyan', 'Magenta', 'Yellow', 'Black'][channel]} channel raw value: ${coverage}%`);
+      // Method 1: Count pixels with significant ink coverage (threshold-based)
+      const { stdout: pixelCount } = await execAsync(`convert "${cmykImagePath}" -channel ${channelLetters[channel]} -separate -threshold 15% -format "%c" histogram:info: | grep -E "\\s*[1-9]" | head -1 | awk '{print $1}' || echo "0"`);
       
-      // Cap coverage at reasonable maximum (no more than 100%)
-      return Math.min(coverage, 100);
+      // Method 2: Get total dimensions for percentage calculation
+      const { stdout: dimensions } = await execAsync(`identify -format "%wx%h" "${cmykImagePath}"`);
+      const [width, height] = dimensions.trim().split('x').map(Number);
+      const totalPixelCount = width * height;
+      
+      // Method 3: Weighted average for more accurate coverage
+      const { stdout: weightedMean } = await execAsync(`convert "${cmykImagePath}" -channel ${channelLetters[channel]} -separate -threshold 10% -format "%[fx:mean]" info:`);
+      
+      const pixelsWithInk = parseInt(pixelCount.trim()) || 0;
+      const weightedCoverage = parseFloat(weightedMean.trim()) * 100;
+      const pixelBasedCoverage = (pixelsWithInk / totalPixelCount) * 100;
+      
+      // Use hybrid approach: combine pixel counting with weighted analysis
+      const finalCoverage = Math.min((pixelBasedCoverage * 0.7) + (weightedCoverage * 0.3), 100);
+      
+      console.log(`${channelNames[channel]} analysis: ${pixelsWithInk} pixels out of ${totalPixelCount} (${pixelBasedCoverage.toFixed(2)}%) | Weighted: ${weightedCoverage.toFixed(2)}% | Final: ${finalCoverage.toFixed(2)}%`);
+      
+      return finalCoverage;
     } catch (error) {
       console.warn(`Failed to analyze ${['cyan', 'magenta', 'yellow', 'black'][channel]} channel:`, error);
       return 0;
