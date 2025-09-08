@@ -17,9 +17,10 @@ export function AnalysisResults({ analysisId }: AnalysisResultsProps) {
   const { data: analysis, isLoading, error } = useQuery<Analysis>({
     queryKey: [`/api/analyses/${analysisId}`],
     enabled: !!analysisId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Refetch if analysis is still processing
-      return data?.status === 'processing' ? 2000 : false;
+      const analysis = query.state.data as Analysis;
+      return analysis?.status === 'processing' ? 2000 : false;
     },
   });
 
