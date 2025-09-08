@@ -74,18 +74,30 @@ export class DocumentAnalysisEngine {
 
   private async getPDFPageCount(filePath: string): Promise<number> {
     try {
-      const { stdout } = await execAsync(`gs -q -dNODISPLAY -c "(${filePath}) (r) file runpdfbegin pdfpagecount = quit"`);
-      return parseInt(stdout.trim());
-    } catch (error) {
-      // Fallback method using pdfinfo if available
-      try {
-        const { stdout } = await execAsync(`pdfinfo "${filePath}" | grep Pages | awk '{print $2}'`);
-        return parseInt(stdout.trim());
-      } catch {
-        // If both fail, assume single page
-        return 1;
+      // Use pdfinfo as primary method (more reliable)
+      const { stdout } = await execAsync(`pdfinfo "${filePath}" | grep Pages`);
+      const match = stdout.match(/Pages:\s*(\d+)/);
+      if (match) {
+        return parseInt(match[1]);
       }
+    } catch (error) {
+      console.warn('pdfinfo failed, trying Ghostscript:', error);
     }
+
+    // Fallback to simpler Ghostscript method
+    try {
+      const { stdout } = await execAsync(`gs -q -dBATCH -dNOPAUSE -sDEVICE=bbox "${filePath}" 2>&1 | grep -c "%%Page:"`);
+      const pageCount = parseInt(stdout.trim());
+      if (pageCount > 0) {
+        return pageCount;
+      }
+    } catch (error) {
+      console.warn('Ghostscript page count failed:', error);
+    }
+
+    // Final fallback - assume single page
+    console.warn('All page count methods failed, assuming single page');
+    return 1;
   }
 
   private async analyzePDFPage(filePath: string, pageNum: number): Promise<CMYKCoverage> {
@@ -95,13 +107,22 @@ export class DocumentAnalysisEngine {
     const tempImagePath = path.join(tempDir, `page_${pageNum}_${Date.now()}.png`);
     
     try {
-      // Convert PDF page to high-res image for analysis
-      await execAsync(`gs -dSAFER -dBATCH -dNOPAUSE -dQuiet -sDEVICE=png16m -r300 -dFirstPage=${pageNum} -dLastPage=${pageNum} -sOutputFile="${tempImagePath}" "${filePath}"`);
+      console.log(`Converting PDF page ${pageNum} to image...`);
+      // Convert PDF page to image (reduced resolution for performance)
+      await execAsync(`gs -dSAFER -dBATCH -dNOPAUSE -dQuiet -sDEVICE=png16m -r150 -dFirstPage=${pageNum} -dLastPage=${pageNum} -sOutputFile="${tempImagePath}" "${filePath}"`);
+      
+      // Verify image was created
+      await fs.access(tempImagePath);
+      console.log(`Analyzing CMYK coverage for page ${pageNum}...`);
       
       // Analyze the converted image
       const coverage = await this.analyzeImageFile(tempImagePath);
       
       return coverage;
+    } catch (error) {
+      console.error(`Failed to analyze PDF page ${pageNum}:`, error);
+      // Return minimal coverage if page analysis fails
+      return { cyan: 0, magenta: 0, yellow: 0, black: 0 };
     } finally {
       // Clean up temp file
       try {
@@ -170,9 +191,13 @@ export class DocumentAnalysisEngine {
 
   private async getChannelCoverage(cmykImagePath: string, channel: number, totalPixels: number): Promise<number> {
     try {
-      // Extract channel and calculate non-white pixels
-      const { stdout } = await execAsync(`convert "${cmykImagePath}" -channel ${['C', 'M', 'Y', 'K'][channel]} -separate -threshold 5% -format "%[fx:1-mean]" info:`);
-      return parseFloat(stdout.trim()) * 100;
+      // Extract channel and calculate ink coverage
+      // Use a lower threshold for more accurate ink detection
+      const { stdout } = await execAsync(`convert "${cmykImagePath}" -channel ${['C', 'M', 'Y', 'K'][channel]} -separate -threshold 3% -format "%[fx:1-mean]" info:`);
+      const coverage = parseFloat(stdout.trim()) * 100;
+      
+      // Cap coverage at reasonable maximum (no more than 100%)
+      return Math.min(coverage, 100);
     } catch (error) {
       console.warn(`Failed to analyze ${['cyan', 'magenta', 'yellow', 'black'][channel]} channel:`, error);
       return 0;
