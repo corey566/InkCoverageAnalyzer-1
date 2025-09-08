@@ -48,6 +48,83 @@ export class DocumentAnalysisEngine {
   }
 
   private async analyzePDF(filePath: string): Promise<AnalysisResult> {
+    try {
+      // Try direct PDF to CMYK conversion first (more accurate)
+      return await this.analyzePDFDirect(filePath);
+    } catch (error) {
+      console.warn('Direct PDF analysis failed, falling back to page-by-page:', error);
+      return await this.analyzePDFPageByPage(filePath);
+    }
+  }
+
+  private async analyzePDFDirect(filePath: string): Promise<AnalysisResult> {
+    const tempDir = path.join(process.cwd(), 'temp');
+    await fs.mkdir(tempDir, { recursive: true });
+    
+    const tempCMYKPath = path.join(tempDir, `cmyk_${Date.now()}.tiff`);
+    
+    try {
+      // Convert entire PDF to CMYK TIFF (preserves color separation)
+      console.log('Converting PDF directly to CMYK...');
+      await execAsync(`convert "${filePath}" -colorspace CMYK "${tempCMYKPath}"`);
+      
+      // Get page count from converted TIFF
+      const { stdout: pageCountStr } = await execAsync(`identify "${tempCMYKPath}" | wc -l`);
+      const pageCount = parseInt(pageCountStr.trim());
+      
+      const pageBreakdown: PageAnalysis[] = [];
+      
+      // Analyze each page from CMYK TIFF
+      for (let pageNum = 0; pageNum < pageCount; pageNum++) {
+        const coverage = await this.analyzeCMYKPage(tempCMYKPath, pageNum);
+        pageBreakdown.push({
+          page: pageNum + 1,
+          ...coverage,
+          total: coverage.cyan + coverage.magenta + coverage.yellow + coverage.black
+        });
+      }
+
+      // Calculate overall coverage
+      const overallCoverage = this.calculateOverallCoverage(pageBreakdown);
+
+      return {
+        totalPages: pageCount,
+        overallCoverage,
+        pageBreakdown
+      };
+    } finally {
+      // Clean up temp file
+      try {
+        await fs.unlink(tempCMYKPath);
+      } catch (error) {
+        console.warn('Failed to clean up temp CMYK file:', tempCMYKPath);
+      }
+    }
+  }
+
+  private async analyzeCMYKPage(cmykImagePath: string, pageIndex: number): Promise<CMYKCoverage> {
+    try {
+      console.log(`Analyzing CMYK coverage for page ${pageIndex + 1}...`);
+      
+      // Analyze each CMYK channel directly
+      const cyan = await this.getChannelCoverage(`${cmykImagePath}[${pageIndex}]`, 0, 0);
+      const magenta = await this.getChannelCoverage(`${cmykImagePath}[${pageIndex}]`, 1, 0);
+      const yellow = await this.getChannelCoverage(`${cmykImagePath}[${pageIndex}]`, 2, 0);
+      const black = await this.getChannelCoverage(`${cmykImagePath}[${pageIndex}]`, 3, 0);
+      
+      return {
+        cyan: Math.round(cyan * 10) / 10,
+        magenta: Math.round(magenta * 10) / 10,
+        yellow: Math.round(yellow * 10) / 10,
+        black: Math.round(black * 10) / 10
+      };
+    } catch (error) {
+      console.error(`Failed to analyze CMYK page ${pageIndex + 1}:`, error);
+      return { cyan: 0, magenta: 0, yellow: 0, black: 0 };
+    }
+  }
+
+  private async analyzePDFPageByPage(filePath: string): Promise<AnalysisResult> {
     // Get page count
     const pageCount = await this.getPDFPageCount(filePath);
     const pageBreakdown: PageAnalysis[] = [];
@@ -191,10 +268,12 @@ export class DocumentAnalysisEngine {
 
   private async getChannelCoverage(cmykImagePath: string, channel: number, totalPixels: number): Promise<number> {
     try {
-      // Extract channel and calculate ink coverage
-      // Use a lower threshold for more accurate ink detection
-      const { stdout } = await execAsync(`convert "${cmykImagePath}" -channel ${['C', 'M', 'Y', 'K'][channel]} -separate -threshold 3% -format "%[fx:1-mean]" info:`);
+      // Extract channel and calculate actual ink coverage
+      // For CMYK, we want to measure how much ink is present, not absent
+      const { stdout } = await execAsync(`convert "${cmykImagePath}" -channel ${['C', 'M', 'Y', 'K'][channel]} -separate -format "%[fx:mean]" info:`);
       const coverage = parseFloat(stdout.trim()) * 100;
+      
+      console.log(`${['Cyan', 'Magenta', 'Yellow', 'Black'][channel]} channel raw value: ${coverage}%`);
       
       // Cap coverage at reasonable maximum (no more than 100%)
       return Math.min(coverage, 100);
