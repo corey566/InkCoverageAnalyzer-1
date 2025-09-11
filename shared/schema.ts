@@ -50,3 +50,66 @@ export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Document = typeof documents.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
 export type Analysis = typeof analyses.$inferSelect;
+
+// Additional types for comprehensive ink analysis
+export interface CMYKCoverage {
+  cyan: number;
+  magenta: number;
+  yellow: number;
+  black: number;
+}
+
+export interface PageAnalysis {
+  page: number;
+  cyan: number;
+  magenta: number;
+  yellow: number;
+  black: number;
+  total: number;
+}
+
+export interface AnalysisResult {
+  totalPages: number;
+  overallCoverage: CMYKCoverage;
+  pageBreakdown: PageAnalysis[];
+}
+
+export interface PixelAnalysisResult {
+  totalPixels: number;
+  pixelCounts: {
+    total: number;
+    cyan: number;
+    magenta: number;
+    yellow: number;
+    black: number;
+    textPixels: number;
+    imagePixels: number;
+  };
+  percentages: CMYKCoverage;
+  textVsImage: {
+    textPixels: number;
+    imagePixels: number;
+    textPercentage: number;
+    imagePercentage: number;
+  };
+}
+
+export interface DetailedPageAnalysis {
+  totalPixels: number;
+  cmykCoverage: CMYKCoverage;
+  pixelCounts: {
+    total: number;
+    cyan: number;
+    magenta: number;
+    yellow: number;
+    black: number;
+    textPixels: number;
+    imagePixels: number;
+  };
+  textAnalysis: CMYKCoverage;
+  imageAnalysis: CMYKCoverage;
+  breakdown: {
+    textPercentage: number;
+    imagePercentage: number;
+  };
+}
