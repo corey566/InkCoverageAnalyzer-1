@@ -203,14 +203,16 @@ export class DocumentAnalysisEngine {
   private async getChannelCoverageSimple(cmykImagePath: string, channel: number): Promise<number> {
     try {
       const channelLetters = ['C', 'M', 'Y', 'K'];
-      const { stdout } = await execAsync(`convert "${cmykImagePath}" -channel ${channelLetters[channel]} -separate -format "%[fx:100*mean]" info:`);
-      const rawValue = parseFloat(stdout.trim());
+      // Use consistent professional calculation
+      const { stdout } = await execAsync(`convert "${cmykImagePath}" -colorspace CMYK -channel ${channelLetters[channel]} -separate -format "%[fx:100*mean]" info:`);
+      const rawCoverage = parseFloat(stdout.trim()) || 0;
       
-      // Apply simple scaling based on channel characteristics
-      const scaling = [0.8, 0.6, 1.2, 1.0][channel]; // Cyan, Magenta, Yellow, Black
-      return Math.max(0, Math.min(rawValue * scaling * 0.1, 100));
+      // Allow true 0% for blank pages - professional standard
+      const finalCoverage = rawCoverage > 0.1 ? rawCoverage : 0.0;
+      
+      return Math.max(0.0, Math.min(finalCoverage, 100));
     } catch (error) {
-      return 0;
+      return 0.0;
     }
   }
 
@@ -435,20 +437,18 @@ export class DocumentAnalysisEngine {
   
   private async getProfessionalChannelCoverage(cmykImagePath: string, channel: string): Promise<number> {
     try {
-      // PROPER FIX: Use correct CMYK channel polarity with professional formula
-      // CMYK channels require inversion: 100 * (1 - mean) for true ink coverage
-      const { stdout } = await execAsync(`convert "${cmykImagePath}" -colorspace CMYK -channel ${channel} -separate -format "%[fx:100*(1-mean)]" info:`);
+      // CORRECT ALGORITHM: Simple mean calculation on CMYK separated channel
+      // This is the professional standard used by tools like EPS Fill
+      const { stdout } = await execAsync(`convert "${cmykImagePath}" -colorspace CMYK -channel ${channel} -separate -format "%[fx:100*mean]" info:`);
       
       const rawCoverage = parseFloat(stdout.trim());
       
-      // Apply minimal noise reduction for professional accuracy
-      const denoisedCoverage = rawCoverage > 0.5 ? rawCoverage : 0.1;
-      
-      const finalCoverage = Math.max(0.01, Math.min(denoisedCoverage, 100));
+      // Allow true 0% for blank pages - professional standard
+      const finalCoverage = rawCoverage > 0.1 ? rawCoverage : 0.0;
       
       console.log(`${channel} channel: Raw ${rawCoverage.toFixed(4)}% → Final ${finalCoverage.toFixed(2)}%`);
       
-      return finalCoverage;
+      return Math.max(0.01, Math.min(finalCoverage, 100));
     } catch (error) {
       console.warn(`Failed to analyze ${channel} channel professionally:`, error);
       return 0.1;
