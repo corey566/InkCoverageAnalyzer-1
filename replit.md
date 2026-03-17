@@ -1,111 +1,89 @@
-# Ink Coverage Estimator - Professional Document Analysis Tool
+# Ink Coverage Estimator - Sterling Carter Technology Distributors
 
 ## Overview
 
-This is a professional web application designed for print shops and mass printing centers to analyze ink coverage in documents. The application provides CMYK (Cyan, Magenta, Yellow, Black) ink usage analysis for various document formats including PDF, EPS, Excel, images, and other printable documents. Built with modern web technologies, it offers a complete solution for cost estimation and print optimization.
+A professional web application for print shops and mass printing centers that analyzes ink coverage in documents and calculates cost per page. Supports PDF, EPS, and image formats with CMYK or Color+Black modes.
 
 ## System Architecture
 
-### Frontend Architecture
-- **Framework**: React 18 with TypeScript for type safety and modern development
-- **Styling**: Tailwind CSS with shadcn/ui component library for consistent, professional UI
-- **State Management**: TanStack Query (React Query) for server state management and caching
-- **Routing**: Wouter for lightweight client-side routing
-- **Build Tool**: Vite for fast development and optimized builds
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **State**: TanStack Query v5
+- **Routing**: Wouter
+- **Build**: Vite
 
-### Backend Architecture
-- **Runtime**: Node.js with Express.js server framework
-- **Language**: TypeScript for full-stack type safety
-- **File Processing**: Multer for file upload handling with support for multiple document formats
-- **Session Management**: Express sessions with PostgreSQL store
-- **Development**: Hot module replacement with Vite integration
+### Backend
+- **Runtime**: Node.js + Express.js + TypeScript
+- **File Processing**: Multer (50MB limit)
+- **Storage**: In-memory (MemStorage)
 
-### Data Storage Solutions
-- **Database**: PostgreSQL with Drizzle ORM for type-safe database operations
-- **Schema Definition**: Centralized schema in `/shared/schema.ts` for consistency
-- **File Storage**: Local file system storage in `/uploads` directory
-- **Database Migrations**: Drizzle Kit for schema migrations
+## Analysis Engine
 
-## Key Components
+### Primary Method (PDFs): Ghostscript `inkcov` device
+Reads CMYK ink coverage **directly from the PDF's color specifications** without going through RGB conversion. This is what professional tools like EPS Fill use.
 
-### Document Management System
-- **Upload Processing**: Multi-format document upload with validation
-- **File Types Supported**: PDF, EPS, Excel, Word, images (JPEG, PNG, TIFF, GIF)
-- **Size Limits**: 50MB maximum file size per document
-- **Storage**: Secure file storage with original filename preservation
+Output format: `C  M  Y  K  CMYK OK` (values 0.0–1.0 per page)
 
-### Analysis Engine
-- **Mock Implementation**: Current implementation includes mock analysis functionality
-- **CMYK Processing**: Calculates coverage percentages for each ink color
-- **Page-by-Page Analysis**: Detailed breakdown for multi-page documents
-- **Status Tracking**: Real-time analysis status (pending, processing, completed, failed)
+### Fallback Method (images + PDF fallback): ImageMagick RGB formula
+Renders each page to RGB with a white background, then calculates CMYK:
+- `C = (1 - mean_R) × 100`
+- `M = (1 - mean_G) × 100`
+- `Y = (1 - mean_B) × 100`
+- `K = (1 - mean_max(R,G,B)) × 100`
 
-### User Interface Components
-- **File Upload**: Drag-and-drop interface with progress tracking
-- **Analysis Results**: Real-time display of ink coverage data
-- **Report Generation**: Export capabilities for PDF, Excel, and image formats
-- **Professional Design**: Business-focused UI with CMYK color scheme
+This is consistent with the documentation formula: `C = 255-R, M = 255-G, Y = 255-B, K = min(C,M,Y)`.
 
-### API Structure
-- **RESTful Endpoints**: 
-  - `POST /api/documents/upload` - File upload
-  - `POST /api/documents/:id/analyze` - Start analysis
-  - `GET /api/analyses/:id` - Get analysis results
-  - `GET /api/analyses/:id/download/:format` - Download reports
+Critical: Always render PDFs with `-background white -alpha remove` to ensure white paper background.
 
-## Data Flow
+## Features
 
-1. **Document Upload**: User uploads document through drag-and-drop interface
-2. **File Validation**: Server validates file type, size, and format
-3. **Storage**: Document stored in file system with metadata in database
-4. **Analysis Trigger**: User initiates analysis for uploaded document
-5. **Processing**: Mock analysis engine calculates CMYK coverage
-6. **Results Display**: Real-time updates show analysis progress and results
-7. **Report Generation**: Users can export detailed reports in multiple formats
+### Analysis Modes
+1. **CMYK Mode** — Separate Cyan, Magenta, Yellow, Black channels
+2. **Color + Black Mode** — Combined color cartridge (CMY average) + black
 
-## External Dependencies
-
-### Core Libraries
-- **Database**: `@neondatabase/serverless` for PostgreSQL connection
-- **ORM**: `drizzle-orm` and `drizzle-zod` for database operations
-- **UI Components**: Extensive Radix UI component collection via shadcn/ui
-- **File Processing**: `multer` for file uploads
-- **Validation**: Zod for runtime type validation
-
-### Development Tools
-- **Build**: Vite with React plugin
-- **TypeScript**: Full-stack type safety
-- **ESBuild**: Server bundling for production
-- **PostCSS**: CSS processing with Tailwind
-
-## Deployment Strategy
-
-### Replit Configuration
-- **Platform**: Configured for Replit deployment with autoscale target
-- **Build Process**: `npm run build` for production assets
-- **Runtime**: Node.js 20 with PostgreSQL 16 module
-- **Port Configuration**: Server runs on port 5000, exposed as port 80
-
-### Environment Setup
-- **Database**: PostgreSQL connection via `DATABASE_URL` environment variable
-- **File Storage**: Local uploads directory with proper permissions
-- **Sessions**: PostgreSQL-backed session storage for scalability
-
-### Production Considerations
-- **Asset Serving**: Static files served from `/dist/public`
-- **Error Handling**: Comprehensive error boundaries and API error responses
-- **Logging**: Request/response logging for API endpoints
-- **Performance**: Optimized builds with tree shaking and code splitting
-
-## Changelog
-
+### Cost Estimator
+Formula from documentation:
 ```
-Changelog:
-- June 24, 2025. Initial setup
+effective_yield = rated_yield × (5 / actual_coverage)
+cost_per_page = price / effective_yield
+adjusted_cost = base_cost × (1 + waste%)
 ```
+
+Displays:
+- Base cost per page
+- Adjusted cost (with waste factor)
+- Variation range (±8%)
+- Per-cartridge breakdown
+
+### Results Display
+- Coverage bars with percentages per channel
+- Page-by-page breakdown table
+- Summary statistics (total ink load)
+
+## API Endpoints
+
+- `POST /api/documents/upload` — Upload file (PDF, PNG, JPG, TIFF, EPS)
+- `POST /api/documents/:id/analyze` — Start analysis (`{ mode: "cmyk" | "color_black" }`)
+- `GET /api/analyses/:id` — Poll for results
+- `POST /api/estimate` — Calculate cost per page
+
+## Key Files
+
+- `server/analysis-engine.ts` — Core CMYK analysis logic
+- `server/routes.ts` — API routes + cost calculation
+- `shared/schema.ts` — Types and database schema
+- `client/src/components/file-upload.tsx` — Upload UI + mode selection
+- `client/src/components/analysis-results.tsx` — Results + cost estimator
+- `client/src/pages/home.tsx` — Main page
+
+## Deployment
+
+- Port 5000 (Express serves frontend + API)
+- Max file size: 50MB
+- Node.js 20, PostgreSQL 16 available
 
 ## User Preferences
 
-```
-Preferred communication style: Simple, everyday language.
-```
+- Simple, everyday language
+- No mock/placeholder data

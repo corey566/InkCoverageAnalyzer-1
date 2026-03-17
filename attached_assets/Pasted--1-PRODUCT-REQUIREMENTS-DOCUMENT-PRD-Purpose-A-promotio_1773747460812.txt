@@ -1,0 +1,507 @@
+📄 1. PRODUCT REQUIREMENTS DOCUMENT (PRD)
+Purpose
+
+A promotional web application for printer distributors that estimates:
+
+Ink coverage (CMYK or Color+Black)
+
+Cost per page
+
+Variation range
+
+Core Features
+
+File upload (PDF, JPG, PNG)
+
+Coverage analysis
+
+Two modes:
+
+CMYK
+
+Color + Black cartridge
+
+Cost estimation:
+
+user enters yield + price
+
+Waste / variation adjustment
+
+Result display:
+
+coverage %
+
+cost/page
+
+range (± variation)
+
+Non-Goals (important)
+
+Not a RIP system
+
+Not exact print simulation
+
+Not driver-level emulation
+
+Accuracy Positioning
+
+“Profile-based estimation”
+
+Not absolute 100% accuracy
+
+📄 2. SYSTEM ARCHITECTURE DOCUMENT
+Architecture Type
+
+API-first, decoupled system
+
+Frontend (Next.js)
+       ↓
+Backend API (FastAPI)
+       ↓
+Processing Engine (Python)
+       ↓
+Storage (S3 + PostgreSQL)
+Components
+Frontend
+
+Next.js
+
+Handles UI + cost logic
+
+Backend API
+
+FastAPI
+
+Handles:
+
+uploads
+
+job management
+
+results
+
+Processing Engine
+
+PDF → images
+
+color conversion
+
+coverage calculation
+
+Storage
+
+S3 → files
+
+PostgreSQL → jobs + results
+
+📄 3. BACKEND DESIGN DOCUMENT
+Tech Stack
+
+Python
+
+FastAPI
+
+PyMuPDF
+
+Pillow
+
+Redis (optional)
+
+Celery (optional)
+
+Core Modules
+1. Upload Service
+
+validate file
+
+store in S3
+
+create job
+
+2. Processing Service
+
+read file
+
+convert pages to images
+
+normalize color
+
+calculate coverage
+
+3. Coverage Engine
+
+For each page:
+
+for each pixel:
+  extract CMYK values
+  accumulate per channel
+
+Coverage:
+
+coverage = total_channel_value / max_possible_value
+4. Cost Engine
+
+Formula:
+
+effective_yield = rated_yield × (5 / actual_coverage)
+cost_per_page = price / effective_yield
+5. Waste Adjustment
+final_cost = base_cost × (1 + waste%)
+📄 4. FRONTEND DESIGN DOCUMENT
+Stack
+
+Next.js
+
+Tailwind
+
+React
+
+Pages
+1. Upload Page
+
+file input
+
+mode selection
+
+2. Result Page
+
+coverage display
+
+graphs/bars
+
+3. Cost Calculator
+
+input fields
+
+result panel
+
+UI Sections
+
+Upload
+
+Live Analysis
+
+Cost Estimator
+
+Result Summary
+
+📄 5. DATABASE SCHEMA DOCUMENT
+Tables
+jobs
+
+id
+
+file_url
+
+status
+
+created_at
+
+pages
+
+job_id
+
+page_number
+
+cyan
+
+magenta
+
+yellow
+
+black
+
+estimates
+
+job_id
+
+cost
+
+waste
+
+variation_min
+
+variation_max
+
+📄 6. API SPEC DOCUMENT
+Upload
+POST /jobs
+Get status
+GET /jobs/{id}
+Get results
+GET /jobs/{id}/results
+Cost estimate
+POST /estimate
+🚀 NOW THE IMPORTANT PART
+🤖 REPLIT AGENT INSTRUCTIONS (COPY THIS)
+
+Use this EXACTLY.
+
+🔹 STEP 1 — Project Setup
+Message
+
+Create a full-stack web application with the following structure:
+
+Frontend:
+
+Next.js (latest)
+
+TypeScript
+
+Tailwind CSS
+
+Backend:
+
+Python FastAPI
+
+Separate folder called /backend
+
+Set up:
+
+frontend runs on port 3000
+
+backend runs on port 8000
+
+Create a monorepo structure:
+
+/app
+/frontend
+/backend
+
+Make sure both can run independently.
+
+🔹 STEP 2 — Backend Base API
+Message
+
+Inside the backend (FastAPI):
+
+Create endpoints:
+
+POST /jobs
+
+Accept file upload
+
+Save file locally (for now)
+
+Return job_id
+
+GET /jobs/{id}
+
+Return status (queued, processing, done)
+
+GET /jobs/{id}/results
+
+Return mock coverage data
+
+Use UUID for job_id.
+
+Keep everything simple and working first.
+
+🔹 STEP 3 — PDF/Image Processing
+Message
+
+Add file processing:
+
+For PDFs:
+
+Use PyMuPDF
+
+Render each page as an image (PNG)
+
+For images:
+
+Use Pillow
+
+Normalize:
+
+Convert all images to RGB first
+
+Store processed pages in memory or temp folder.
+
+Do NOT implement CMYK yet, just prepare pipeline.
+
+🔹 STEP 4 — Coverage Calculation
+Message
+
+Implement ink coverage calculation:
+
+For each image:
+
+Loop through pixels
+
+Calculate:
+
+average R, G, B
+
+Approximate:
+
+Black = inverse brightness
+
+Color = average RGB intensity
+
+Return:
+{
+color: %,
+black: %
+}
+
+Then extend to pseudo-CMYK:
+
+C = 255 - R
+
+M = 255 - G
+
+Y = 255 - B
+
+K = min(C, M, Y)
+
+Return coverage percentages.
+
+Accuracy does not need to be perfect, just consistent.
+
+🔹 STEP 5 — Frontend Upload UI
+Message
+
+In the frontend:
+
+Create:
+
+file upload component
+
+mode toggle (CMYK / Color+Black)
+
+When file is uploaded:
+
+send to backend /jobs
+
+store job_id
+
+poll for result
+
+Display:
+
+loading state
+
+success state
+
+🔹 STEP 6 — Show Coverage Results
+Message
+
+Display results:
+
+If CMYK:
+
+show cyan, magenta, yellow, black %
+
+If cartridge:
+
+show color % and black %
+
+Use progress bars or charts.
+
+Make UI clean and modern.
+
+🔹 STEP 7 — Cost Calculator
+Message
+
+Add cost estimation UI:
+
+Inputs:
+
+yield
+
+price
+
+waste %
+
+Formula:
+effective_yield = yield × (5 / coverage)
+cost = price / effective_yield
+
+Apply waste:
+final_cost = cost × (1 + waste%)
+
+Show:
+
+cost per page
+
+min/max range (±8%)
+
+🔹 STEP 8 — Backend Cost API (optional upgrade)
+Message
+
+Move cost calculation to backend:
+
+Create POST /estimate
+
+Input:
+
+coverage
+
+yield
+
+price
+
+waste
+
+Return:
+
+cost per page
+
+variation range
+
+Keep logic reusable.
+
+🔹 STEP 9 — Clean Architecture
+Message
+
+Refactor backend into modules:
+
+/services
+coverage.py
+cost.py
+processing.py
+
+Keep code clean and modular.
+
+Prepare for scaling later.
+
+🔹 STEP 10 — Production Upgrade Plan
+Message
+
+Prepare system for production:
+
+Add S3 file storage
+
+Add PostgreSQL database
+
+Add Redis queue
+
+Add background processing
+
+Keep API unchanged.
+
+Make system scalable.
+
+🧩 FINAL ADVICE (VERY IMPORTANT)
+
+my sweet heart — the success of this product depends on this:
+
+👉 Don’t chase “100% accuracy”
+👉 Build credible estimation + calibration capability
+
+If you later:
+
+add printer profiles
+
+add calibration multipliers
+
+👉 Then this becomes a serious commercial tool, not just a demo.
+
+If you want next step, I can:
+
+design the exact backend code
+
+or generate database migrations + real API implementation
+
+or create a full UI design system (Figma-level thinking)

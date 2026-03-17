@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,22 +14,11 @@ export const documents = pgTable("documents", {
 export const analyses = pgTable("analyses", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").references(() => documents.id).notNull(),
-  status: text("status").notNull().default("pending"), // pending, processing, completed, failed
+  status: text("status").notNull().default("pending"),
+  mode: text("mode").notNull().default("cmyk"), // "cmyk" | "color_black"
   totalPages: integer("total_pages"),
-  overallCoverage: jsonb("overall_coverage").$type<{
-    cyan: number;
-    magenta: number;
-    yellow: number;
-    black: number;
-  }>(),
-  pageBreakdown: jsonb("page_breakdown").$type<Array<{
-    page: number;
-    cyan: number;
-    magenta: number;
-    yellow: number;
-    black: number;
-    total: number;
-  }>>(),
+  overallCoverage: jsonb("overall_coverage").$type<CMYKCoverage>(),
+  pageBreakdown: jsonb("page_breakdown").$type<PageAnalysis[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
   errorMessage: text("error_message"),
@@ -51,7 +40,6 @@ export type Document = typeof documents.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
 export type Analysis = typeof analyses.$inferSelect;
 
-// Additional types for comprehensive ink analysis
 export interface CMYKCoverage {
   cyan: number;
   magenta: number;
@@ -74,42 +62,36 @@ export interface AnalysisResult {
   pageBreakdown: PageAnalysis[];
 }
 
-export interface PixelAnalysisResult {
-  totalPixels: number;
-  pixelCounts: {
-    total: number;
-    cyan: number;
-    magenta: number;
-    yellow: number;
-    black: number;
-    textPixels: number;
-    imagePixels: number;
-  };
-  percentages: CMYKCoverage;
-  textVsImage: {
-    textPixels: number;
-    imagePixels: number;
-    textPercentage: number;
-    imagePercentage: number;
-  };
+export interface CostEstimate {
+  mode: "cmyk" | "color_black";
+  coverage: CMYKCoverage;
+  // CMYK mode
+  cyanYield?: number;
+  cyanPrice?: number;
+  magentaYield?: number;
+  magentaPrice?: number;
+  yellowYield?: number;
+  yellowPrice?: number;
+  blackYield?: number;
+  blackPrice?: number;
+  // Color+Black mode
+  colorYield?: number;
+  colorPrice?: number;
+  // Shared
+  wastePercent: number;
 }
 
-export interface DetailedPageAnalysis {
-  totalPixels: number;
-  cmykCoverage: CMYKCoverage;
-  pixelCounts: {
-    total: number;
-    cyan: number;
-    magenta: number;
-    yellow: number;
-    black: number;
-    textPixels: number;
-    imagePixels: number;
-  };
-  textAnalysis: CMYKCoverage;
-  imageAnalysis: CMYKCoverage;
+export interface CostResult {
+  mode: "cmyk" | "color_black";
+  baseCostPerPage: number;
+  adjustedCostPerPage: number;
+  rangeMin: number;
+  rangeMax: number;
   breakdown: {
-    textPercentage: number;
-    imagePercentage: number;
+    cyan?: number;
+    magenta?: number;
+    yellow?: number;
+    black?: number;
+    color?: number;
   };
 }
