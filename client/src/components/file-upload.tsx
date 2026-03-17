@@ -1,57 +1,61 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { X, Upload, File, Play } from "lucide-react";
+import { X, Upload, FileText, Play, Layers, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { formatFileSize, getFileIcon } from "@/lib/utils";
 import type { Document } from "@shared/schema";
 
 interface FileUploadProps {
-  onAnalysisStart: (documentId: number) => void;
+  onAnalysisStart: (documentId: number, mode: "cmyk" | "color_black") => void;
 }
 
-interface UploadedFile extends Document {
-  file: File;
+type AnalysisMode = "cmyk" | "color_black";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function FileUpload({ onAnalysisStart }: FileUploadProps) {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<Document | null>(null);
+  const [mode, setMode] = useState<AnalysisMode>("cmyk");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      
       const response = await apiRequest('POST', '/api/documents/upload', formData);
+      return response.json() as Promise<Document>;
+    },
+    onSuccess: (document: Document) => {
+      setUploadedFile(document);
+      toast({ title: "File uploaded", description: `${document.originalName} is ready for analysis.` });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const analyzeMutation = useMutation({
+    mutationFn: async ({ documentId, mode }: { documentId: number; mode: AnalysisMode }) => {
+      const response = await apiRequest('POST', `/api/documents/${documentId}/analyze`, { mode });
       return response.json();
     },
-    onSuccess: (document: Document, file: File) => {
-      setUploadedFiles(prev => [...prev, { ...document, file }]);
-      toast({
-        title: "File uploaded successfully",
-        description: `${file.name} has been uploaded and is ready for analysis.`,
-      });
+    onSuccess: (analysis) => {
+      onAnalysisStart(analysis.id, mode);
     },
-    onError: (error) => {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    onError: () => {
+      toast({ title: "Analysis failed to start", description: "Please try again.", variant: "destructive" });
     }
   });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    acceptedFiles.forEach(file => {
-      uploadMutation.mutate(file);
-    });
+    if (acceptedFiles[0]) uploadMutation.mutate(acceptedFiles[0]);
   }, [uploadMutation]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -59,143 +63,142 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
     accept: {
       'application/pdf': ['.pdf'],
       'application/postscript': ['.eps'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
       'image/tiff': ['.tiff', '.tif'],
-      'image/gif': ['.gif'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
-    maxSize: 50 * 1024 * 1024, // 50MB
+    maxSize: 50 * 1024 * 1024,
+    multiple: false,
   });
 
-  const removeFile = (fileId: number) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-  };
-
-  const startAnalysis = async () => {
-    if (uploadedFiles.length === 0) {
-      toast({
-        title: "No files to analyze",
-        description: "Please upload at least one document first.",
-        variant: "destructive",
-      });
+  const handleStartAnalysis = () => {
+    if (!uploadedFile) {
+      toast({ title: "No file selected", description: "Please upload a file first.", variant: "destructive" });
       return;
     }
-
-    setIsProcessing(true);
-    
-    try {
-      // Start analysis for the first file (in a real app, could handle multiple files)
-      const firstFile = uploadedFiles[0];
-      onAnalysisStart(firstFile.id);
-      
-      toast({
-        title: "Analysis started",
-        description: "Your documents are being analyzed. This may take a few moments.",
-      });
-    } catch (error) {
-      toast({
-        title: "Analysis failed to start",
-        description: "Please try again or contact support.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+    analyzeMutation.mutate({ documentId: uploadedFile.id, mode });
   };
 
   return (
     <section id="estimator" className="py-16 bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Ink Coverage Estimator</h2>
-          <p className="text-xl text-gray-600">
-            Upload your documents and get instant CMYK ink coverage analysis
-          </p>
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Ink Coverage Estimator</h2>
+          <p className="text-lg text-gray-600">Upload your document to get instant ink coverage and cost analysis</p>
         </div>
 
         <Card className="shadow-lg">
-          <CardContent className="p-8">
+          <CardContent className="p-8 space-y-8">
+
+            {/* Mode Selection */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Analysis Mode</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setMode("cmyk")}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                    mode === "cmyk"
+                      ? "border-blue-600 bg-blue-50 text-blue-900"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <Layers className={`w-5 h-5 flex-shrink-0 ${mode === "cmyk" ? "text-blue-600" : "text-gray-400"}`} />
+                  <div>
+                    <div className="font-semibold text-sm">CMYK Mode</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Separate Cyan, Magenta, Yellow, Black</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setMode("color_black")}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                    mode === "color_black"
+                      ? "border-purple-600 bg-purple-50 text-purple-900"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <Printer className={`w-5 h-5 flex-shrink-0 ${mode === "color_black" ? "text-purple-600" : "text-gray-400"}`} />
+                  <div>
+                    <div className="font-semibold text-sm">Color + Black</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Combined color cartridge + black</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* File Upload Area */}
-            <div className="mb-8">
-              <div 
-                {...getRootProps()} 
-                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
-                  isDragActive 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-gray-300 hover:border-primary'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Upload Documents</h3>
-                <p className="text-gray-600 mb-6">
-                  Drag and drop files here or click to browse
-                </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  Supported formats: PDF, EPS, Excel, JPG, PNG, TIFF, and more
-                </p>
-                <Button className="bg-primary text-white hover:bg-blue-700">
-                  Choose Files
-                </Button>
-              </div>
-            </div>
-
-            {/* File List */}
-            {uploadedFiles.length > 0 && (
-              <div className="mb-8">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Uploaded Files</h4>
-                <div className="space-y-3">
-                  {uploadedFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <File className="text-red-500 text-xl" />
-                        <div>
-                          <p className="font-medium text-gray-900">{file.originalName}</p>
-                          <p className="text-sm text-gray-600">{formatFileSize(file.fileSize)}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(file.id)}
-                        className="text-gray-400 hover:text-red-500"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Upload Document</h3>
+              {!uploadedFile ? (
+                <div
+                  {...getRootProps()}
+                  className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
+                    isDragActive
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  <Upload className="w-10 h-10 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-700 mb-1">
+                    {isDragActive ? "Drop your file here" : "Drag & drop or click to browse"}
+                  </p>
+                  <p className="text-sm text-gray-500">PDF, PNG, JPG, TIFF, EPS — up to 50MB</p>
+                  {uploadMutation.isPending && (
+                    <div className="mt-4 flex items-center justify-center gap-2 text-blue-600">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm font-medium">Uploading...</span>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Analysis Button */}
-            <div className="text-center mb-8">
-              <Button 
-                onClick={startAnalysis}
-                disabled={uploadedFiles.length === 0 || isProcessing || uploadMutation.isPending}
-                className="bg-secondary text-white px-8 py-4 text-lg hover:bg-green-700"
-                size="lg"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                Start Analysis
-              </Button>
+              ) : (
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-green-700" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{uploadedFile.originalName}</p>
+                      <p className="text-sm text-gray-500">{formatFileSize(uploadedFile.fileSize)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setUploadedFile(null)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </div>
 
-            {/* Progress Indicator */}
-            {isProcessing && (
-              <div className="bg-blue-50 rounded-lg p-6">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div>
-                  <span className="font-medium text-primary">Analyzing documents...</span>
-                </div>
-                <Progress value={45} className="w-full mb-2" />
-                <p className="text-sm text-gray-600">Processing your documents...</p>
-              </div>
-            )}
+            {/* Analyze Button */}
+            <div className="text-center">
+              <Button
+                onClick={handleStartAnalysis}
+                disabled={!uploadedFile || analyzeMutation.isPending}
+                size="lg"
+                className="px-10 py-4 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50"
+              >
+                {analyzeMutation.isPending ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Starting Analysis...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 mr-2" />
+                    Analyze Ink Coverage
+                  </>
+                )}
+              </Button>
+              {uploadedFile && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Mode: <span className="font-medium">{mode === "cmyk" ? "CMYK (4 channels)" : "Color + Black (2 cartridges)"}</span>
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

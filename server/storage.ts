@@ -50,20 +50,26 @@ export class MemStorage implements IStorage {
   async deleteDocument(id: number): Promise<void> {
     this.documents.delete(id);
     // Also delete associated analyses
-    for (const [analysisId, analysis] of this.analyses.entries()) {
+    Array.from(this.analyses.entries()).forEach(([analysisId, analysis]) => {
       if (analysis.documentId === id) {
         this.analyses.delete(analysisId);
       }
-    }
+    });
   }
 
   async createAnalysis(insertAnalysis: InsertAnalysis): Promise<Analysis> {
     const id = this.analysisIdCounter++;
     const analysis: Analysis = {
-      ...insertAnalysis,
       id,
       createdAt: new Date(),
       completedAt: null,
+      documentId: insertAnalysis.documentId,
+      status: insertAnalysis.status ?? "pending",
+      mode: insertAnalysis.mode ?? "cmyk",
+      totalPages: insertAnalysis.totalPages ?? null,
+      overallCoverage: insertAnalysis.overallCoverage ?? null,
+      pageBreakdown: insertAnalysis.pageBreakdown ?? null,
+      errorMessage: insertAnalysis.errorMessage ?? null,
     };
     this.analyses.set(id, analysis);
     return analysis;
