@@ -1,0 +1,38 @@
+
+> rest-express@1.0.0 dev
+8:03:28 AM [express] serving on port 5000s
+Browserslist: browsers data (caniuse-lite) is 17 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+8:04:13 AM [express] POST /api/documents/upload 200 in 7ms :: {"filename":"1773907453602_jud0phvc61k…
+8:04:15 AM [express] POST /api/documents/1/analyze 200 in 1ms :: {"id":1,"createdAt":"2026-03-19T08:…
+Starting analysis for ink-coverage-report-1.pdf (mode: cmyk)
+Analyzing PDF with Ghostscript inkcov device...
+Ghostscript inkcov failed, falling back to ImageMagick RGB method: Error: No CMYK data from Ghostscript, falling back
+    at DocumentAnalysisEngine.analyzePDF (/home/runner/workspace/server/analysis-engine.ts:47:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DocumentAnalysisEngine.analyzeDocument (/home/runner/workspace/server/analysis-engine.ts:15:18)
+    at async Immediate.<anonymous> (/home/runner/workspace/server/routes.ts:159:27)
+Rendering 1 pages via RGB fallback...
+Analysis error: Error: Command failed: convert -density 150 -background white -alpha remove "/home/runner/workspace/uploads/1773907453602_jud0phvc61k.pdf[0]" -alpha off "/home/runner/workspace/temp/page_0_1773907455396.png"
+convert: no images defined `/home/runner/workspace/temp/page_0_1773907455396.png' @ error/convert.c/ConvertImageCommand/3362.
+
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at ChildProcess.exithandler (node:child_process:422:12)
+    at ChildProcess.emit (node:events:524:28)
+    at maybeClose (node:internal/child_process:1104:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5) {
+  code: 1,
+  killed: false,
+  signal: null,
+  cmd: 'convert -density 150 -background white -alpha remove "/home/runner/workspace/uploads/1773907453602_jud0phvc61k.pdf[0]" -alpha off "/home/runner/workspace/temp/page_0_1773907455396.png"',
+  stdout: '',
+  stderr: "convert: no images defined `/home/runner/workspace/temp/page_0_1773907455396.png' @ error/convert.c/ConvertImageCommand/3362.\n"
+}
+Analysis error: Error: Failed to analyze document: Command failed: convert -density 150 -background white -alpha remove "/home/runner/workspace/uploads/1773907453602_jud0phvc61k.pdf[0]" -alpha off "/home/runner/workspace/temp/page_0_1773907455396.png"
+convert: no images defined `/home/runner/workspace/temp/page_0_1773907455396.png' @ error/convert.c/ConvertImageCommand/3362.
+
+    at DocumentAnalysisEngine.analyzeDocument (/home/runner/workspace/server/analysis-engine.ts:28:13)
+    at async Immediate.<anonymous> (/home/runner/workspace/server/routes.ts:159:27)
+8:04:15 AM [express] GET /api/analyses/1 200 in 2ms :: {"id":1,"createdAt":"2026-03-19T08:04:15.275Z…
