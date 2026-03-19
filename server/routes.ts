@@ -17,19 +17,29 @@ const analysisEngine = new DocumentAnalysisEngine();
 const uploadDir = path.join(process.cwd(), 'uploads');
 fs.mkdir(uploadDir, { recursive: true }).catch(console.error);
 
+const mimeToExt: Record<string, string> = {
+  'application/pdf': '.pdf',
+  'application/postscript': '.eps',
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/tiff': '.tiff',
+  'image/gif': '.gif',
+};
+
+const diskStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = mimeToExt[file.mimetype] || path.extname(file.originalname) || '';
+    const unique = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+    cb(null, unique);
+  }
+});
+
 const upload = multer({
-  dest: uploadDir,
+  storage: diskStorage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      'application/pdf',
-      'application/postscript',
-      'image/jpeg',
-      'image/png',
-      'image/tiff',
-      'image/gif',
-    ];
-    if (allowedMimes.includes(file.mimetype)) {
+    if (mimeToExt[file.mimetype]) {
       cb(null, true);
     } else {
       cb(new Error(`Unsupported file type: ${file.mimetype}`));
