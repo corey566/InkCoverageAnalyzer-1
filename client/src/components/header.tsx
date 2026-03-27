@@ -32,51 +32,37 @@ export function Header() {
   const isActive = (href: string) => location === href;
 
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-      {/* Top bar */}
-      <div className="bg-[#0d2137] text-white py-2 hidden md:block">
-        <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          <p className="text-xs text-gray-300">Professional Ink Coverage Analysis for Print Shops & Businesses</p>
-          <div className="flex items-center gap-5 text-xs text-gray-300">
-            <a href="mailto:info@sctdjm.com" className="hover:text-white transition-colors">info@sctdjm.com</a>
-            <span className="text-gray-600">|</span>
-            <a href="tel:+18769686637" className="flex items-center gap-1.5 hover:text-white transition-colors">
-              <Phone className="w-3 h-3" /> (876) 968-6637
-            </a>
-          </div>
-        </div>
-      </div>
-
+    <header className="bg-white sticky top-0 z-50" style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.08)" }}>
       {/* Main nav */}
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex justify-between items-center h-[68px]">
+        <div className="flex justify-between items-center h-[72px]">
 
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
             <img
               src={logoPath}
               alt="SCTD – Sterling Carter Technology Distributors"
-              className="h-9 w-auto object-contain"
+              className="h-10 w-auto object-contain"
             />
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-0.5">
             {navLinks.map((link) => (
               <div key={link.label} className="relative group">
                 {link.children ? (
                   <>
                     <button
-                      className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`flex items-center gap-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-md ${
                         link.children.some(c => isActive(c.href))
-                          ? "text-green-700 bg-green-50"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                          ? "text-green-700"
+                          : "text-gray-700 hover:text-green-700"
                       }`}
                     >
                       {link.label}
-                      <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover:rotate-180 transition-transform duration-200" />
+                      <ChevronDown className="w-3.5 h-3.5 opacity-50 group-hover:rotate-180 transition-transform duration-200" />
                     </button>
-                    <div className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50" style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.12)", border: "1px solid rgba(0,0,0,0.06)" }}>
                       {link.children.map((child) => (
                         <Link
                           key={child.href}
@@ -84,7 +70,7 @@ export function Header() {
                           className={`block px-4 py-2.5 text-sm transition-colors ${
                             isActive(child.href)
                               ? "text-green-700 bg-green-50 font-medium"
-                              : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                              : "text-gray-700 hover:bg-green-50 hover:text-green-700"
                           }`}
                         >
                           {child.label}
@@ -95,10 +81,10 @@ export function Header() {
                 ) : (
                   <Link
                     href={link.href!}
-                    className={`block px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`block px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
                       isActive(link.href!)
-                        ? "text-green-700 bg-green-50"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        ? "text-green-700"
+                        : "text-gray-700 hover:text-green-700"
                     }`}
                   >
                     {link.label}
@@ -108,11 +94,20 @@ export function Header() {
             ))}
           </nav>
 
-          {/* CTA */}
-          <div className="hidden lg:flex items-center gap-3">
+          {/* CTA group */}
+          <div className="hidden lg:flex items-center gap-5">
+            <a
+              href="tel:+18769686637"
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-green-700 transition-colors"
+            >
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-green-50">
+                <Phone className="w-3.5 h-3.5 text-green-700" />
+              </span>
+              (876) 968-6637
+            </a>
             <Link href="/#estimator">
-              <button className="btn-primary">
-                Try the Estimator
+              <button className="btn-primary text-sm px-6 py-2.5">
+                Request Analysis
               </button>
             </Link>
           </div>
@@ -137,7 +132,7 @@ export function Header() {
                   <>
                     <button
                       onClick={() => setOpenDropdown(openDropdown === link.label ? null : link.label)}
-                      className="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                     >
                       {link.label}
                       <ChevronDown className={`w-4 h-4 transition-transform ${openDropdown === link.label ? "rotate-180" : ""}`} />
@@ -161,17 +156,20 @@ export function Header() {
                   <Link
                     href={link.href!}
                     onClick={() => setMobileOpen(false)}
-                    className="block px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors"
+                    className="block px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
                   >
                     {link.label}
                   </Link>
                 )}
               </div>
             ))}
-            <div className="pt-3 border-t border-gray-100">
+            <div className="pt-3 border-t border-gray-100 space-y-2">
               <a href="tel:+18769686637" className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 font-medium">
                 <Phone className="w-4 h-4" /> (876) 968-6637
               </a>
+              <Link href="/#estimator" onClick={() => setMobileOpen(false)}>
+                <button className="btn-primary w-full justify-center">Request Analysis</button>
+              </Link>
             </div>
           </div>
         </div>
