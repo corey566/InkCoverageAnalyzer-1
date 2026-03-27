@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Upload, FileText, Play, Layers, Printer, ShieldAlert } from "lucide-react";
@@ -88,184 +87,190 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
   };
 
   return (
-    <section id="estimator" className="py-16 bg-gray-50">
+    <section id="estimator" className="py-20" style={{ background: "hsl(120, 8%, 97%)" }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">Ink Coverage Estimator</h2>
-          <p className="text-lg text-gray-600">Upload your document to get instant ink coverage and cost analysis</p>
+        {/* Section header */}
+        <div className="text-center mb-12">
+          <p className="section-label mb-3">Professional Tool</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+            Ink Coverage Estimator
+          </h2>
+          <p className="text-gray-500 text-base max-w-xl mx-auto">
+            Upload your document to get instant CMYK ink coverage and cost analysis powered by Ghostscript.
+          </p>
         </div>
 
-        <Card className="shadow-lg">
-          <CardContent className="p-8 space-y-8">
+        {/* Card */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-8"
+          style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07), 0 16px 40px rgba(0,0,0,0.06)" }}>
 
-
-            {/* Mode Selection */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Analysis Mode</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setMode("cmyk")}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                    mode === "cmyk"
-                      ? "border-blue-600 bg-blue-50 text-blue-900"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <Layers className={`w-5 h-5 flex-shrink-0 ${mode === "cmyk" ? "text-blue-600" : "text-gray-400"}`} />
-                  <div>
-                    <div className="font-semibold text-sm">CMYK Mode</div>
-                    <div className="text-xs text-gray-500 mt-0.5">Separate Cyan, Magenta, Yellow, Black</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setMode("color_black")}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                    mode === "color_black"
-                      ? "border-purple-600 bg-purple-50 text-purple-900"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <Printer className={`w-5 h-5 flex-shrink-0 ${mode === "color_black" ? "text-purple-600" : "text-gray-400"}`} />
-                  <div>
-                    <div className="font-semibold text-sm">Color + Black</div>
-                    <div className="text-xs text-gray-500 mt-0.5">Combined color cartridge + black</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Terms & Privacy Agreement */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Agreement Required</h3>
-              <div className={`rounded-xl border-2 p-4 transition-colors ${termsAccepted ? "border-green-300 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {termsAccepted ? (
-                      <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    ) : (
-                      <ShieldAlert className="w-6 h-6 text-amber-500" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className={`text-sm font-semibold mb-1 ${termsAccepted ? "text-green-800" : "text-amber-800"}`}>
-                      {termsAccepted ? "You have agreed to the terms" : "Please agree before uploading"}
-                    </p>
-                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                      By uploading a document you confirm that you have read and agree to our{" "}
-                      <Link href="/terms-of-service" className="text-blue-600 hover:underline font-medium" target="_blank">
-                        Terms of Service
-                      </Link>{" "}
-                      and{" "}
-                      <Link href="/privacy-policy" className="text-blue-600 hover:underline font-medium" target="_blank">
-                        Privacy Policy
-                      </Link>
-                      . Your document will be processed for ink coverage analysis only and will not be retained on our servers.
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="terms-accept"
-                        checked={termsAccepted}
-                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
-                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                      />
-                      <label
-                        htmlFor="terms-accept"
-                        className="text-sm text-gray-700 cursor-pointer select-none font-medium"
-                      >
-                        I agree to the Terms of Service and Privacy Policy
-                      </label>
-                    </div>
-                  </div>
+          {/* Mode Selection */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Analysis Mode</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setMode("cmyk")}
+                className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  mode === "cmyk"
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <Layers className={`w-5 h-5 flex-shrink-0 ${mode === "cmyk" ? "text-green-700" : "text-gray-400"}`} />
+                <div>
+                  <div className={`font-semibold text-sm ${mode === "cmyk" ? "text-green-900" : "text-gray-700"}`}>CMYK Mode</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Separate Cyan, Magenta, Yellow, Black</div>
                 </div>
-              </div>
+              </button>
+              <button
+                onClick={() => setMode("color_black")}
+                className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  mode === "color_black"
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <Printer className={`w-5 h-5 flex-shrink-0 ${mode === "color_black" ? "text-green-700" : "text-gray-400"}`} />
+                <div>
+                  <div className={`font-semibold text-sm ${mode === "color_black" ? "text-green-900" : "text-gray-700"}`}>Color + Black</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Combined color cartridge + black</div>
+                </div>
+              </button>
             </div>
+          </div>
 
-            {/* File Upload Area */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Upload Document</h3>
-              {!uploadedFile ? (
-                <div
-                  {...(termsAccepted ? getRootProps() : {})}
-                  className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
-                    !termsAccepted
-                      ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
-                      : isDragActive
-                        ? "border-blue-500 bg-blue-50 cursor-pointer"
-                        : "border-gray-300 hover:border-blue-400 hover:bg-gray-50 cursor-pointer"
-                  }`}
-                >
-                  {termsAccepted && <input {...getInputProps()} />}
-                  <Upload className={`w-10 h-10 mx-auto mb-4 ${termsAccepted ? "text-gray-400" : "text-gray-300"}`} />
-                  <p className={`text-lg font-medium mb-1 ${termsAccepted ? "text-gray-700" : "text-gray-400"}`}>
-                    {!termsAccepted
-                      ? "Accept the terms above to enable upload"
-                      : isDragActive
-                        ? "Drop your file here"
-                        : "Drag & drop or click to browse"}
-                  </p>
-                  <p className="text-sm text-gray-500">PDF, PNG, JPG, TIFF, EPS — up to 50MB</p>
-                  {uploadMutation.isPending && (
-                    <div className="mt-4 flex items-center justify-center gap-2 text-blue-600">
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm font-medium">Uploading...</span>
+          {/* Terms & Privacy Agreement */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Agreement Required</h3>
+            <div className={`rounded-xl border-2 p-4 transition-colors ${termsAccepted ? "border-green-300 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {termsAccepted ? (
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "hsl(133, 55%, 40%)" }}>
+                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
                     </div>
+                  ) : (
+                    <ShieldAlert className="w-6 h-6 text-amber-500" />
                   )}
                 </div>
-              ) : (
-                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-green-700" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{uploadedFile.originalName}</p>
-                      <p className="text-sm text-gray-500">{formatFileSize(uploadedFile.fileSize)}</p>
-                    </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-semibold mb-1 ${termsAccepted ? "text-green-800" : "text-amber-800"}`}>
+                    {termsAccepted ? "You have agreed to the terms" : "Please agree before uploading"}
+                  </p>
+                  <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                    By uploading a document you confirm that you have read and agree to our{" "}
+                    <Link href="/terms-of-service" className="font-medium hover:underline" style={{ color: "hsl(133, 48%, 36%)" }}>
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy-policy" className="font-medium hover:underline" style={{ color: "hsl(133, 48%, 36%)" }}>
+                      Privacy Policy
+                    </Link>
+                    . Your document will be processed for ink coverage analysis only and will not be retained.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="terms-accept"
+                      checked={termsAccepted}
+                      onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                      className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                    />
+                    <label htmlFor="terms-accept" className="text-sm text-gray-700 cursor-pointer select-none font-medium">
+                      I agree to the Terms of Service and Privacy Policy
+                    </label>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setUploadedFile(null)}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
                 </div>
-              )}
+              </div>
             </div>
+          </div>
 
-            {/* Analyze Button */}
-            <div className="text-center">
-              <Button
-                onClick={handleStartAnalysis}
-                disabled={!uploadedFile || analyzeMutation.isPending || !termsAccepted}
-                size="lg"
-                className="px-10 py-4 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50"
+          {/* File Upload Area */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Upload Document</h3>
+            {!uploadedFile ? (
+              <div
+                {...(termsAccepted ? getRootProps() : {})}
+                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
+                  !termsAccepted
+                    ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+                    : isDragActive
+                      ? "cursor-pointer"
+                      : "border-gray-300 hover:border-green-500 hover:bg-green-50/50 cursor-pointer"
+                }`}
+                style={isDragActive && termsAccepted ? { borderColor: "hsl(133, 55%, 40%)", background: "hsl(133, 48%, 97%)" } : {}}
               >
-                {analyzeMutation.isPending ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Starting Analysis...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5 mr-2" />
-                    Analyze Ink Coverage
-                  </>
-                )}
-              </Button>
-              {uploadedFile && (
-                <p className="text-sm text-gray-500 mt-2">
-                  Mode: <span className="font-medium">{mode === "cmyk" ? "CMYK (4 channels)" : "Color + Black (2 cartridges)"}</span>
+                {termsAccepted && <input {...getInputProps()} />}
+                <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: "hsl(133, 48%, 94%)" }}>
+                  <Upload className={`w-7 h-7 ${termsAccepted ? "" : "text-gray-300"}`} style={termsAccepted ? { color: "hsl(133, 48%, 36%)" } : {}} />
+                </div>
+                <p className={`text-base font-semibold mb-1 ${termsAccepted ? "text-gray-800" : "text-gray-400"}`}>
+                  {!termsAccepted
+                    ? "Accept the terms above to enable upload"
+                    : isDragActive
+                      ? "Drop your file here"
+                      : "Drag & drop or click to browse"}
                 </p>
+                <p className="text-sm text-gray-400">PDF, PNG, JPG, TIFF, EPS — up to 50 MB</p>
+                {uploadMutation.isPending && (
+                  <div className="mt-5 flex items-center justify-center gap-2" style={{ color: "hsl(133, 55%, 40%)" }}>
+                    <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "hsl(133, 55%, 40%)", borderTopColor: "transparent" }} />
+                    <span className="text-sm font-medium">Uploading...</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "hsl(133, 48%, 90%)" }}>
+                    <FileText className="w-5 h-5" style={{ color: "hsl(133, 48%, 36%)" }} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">{uploadedFile.originalName}</p>
+                    <p className="text-xs text-gray-500">{formatFileSize(uploadedFile.fileSize)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setUploadedFile(null)}
+                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Analyze Button */}
+          <div className="text-center">
+            <button
+              onClick={handleStartAnalysis}
+              disabled={!uploadedFile || analyzeMutation.isPending || !termsAccepted}
+              className="inline-flex items-center gap-2 px-10 py-4 rounded-full font-bold text-white text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: "hsl(133, 55%, 40%)",
+                boxShadow: uploadedFile && !analyzeMutation.isPending ? "0 4px 20px rgba(46,160,80,0.35)" : "none",
+              }}
+            >
+              {analyzeMutation.isPending ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Starting Analysis...
+                </>
+              ) : (
+                <>
+                  <Play className="w-5 h-5" />
+                  Analyze Ink Coverage
+                </>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </button>
+            {uploadedFile && (
+              <p className="text-sm text-gray-400 mt-3">
+                Mode: <span className="font-medium text-gray-600">{mode === "cmyk" ? "CMYK (4 channels)" : "Color + Black (2 cartridges)"}</span>
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Document Preview */}
         {uploadedFile && (
