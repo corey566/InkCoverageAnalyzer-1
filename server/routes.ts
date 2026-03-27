@@ -223,6 +223,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve uploaded file for preview
+  app.get("/api/documents/:id/file", async (req, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      if (!document) return res.status(404).json({ message: "Document not found" });
+
+      const filePath = path.join(uploadDir, document.filename);
+      res.setHeader('Content-Type', document.mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(document.originalName)}"`);
+      res.sendFile(filePath);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to serve file" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

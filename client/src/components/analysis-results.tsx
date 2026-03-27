@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Calculator, TrendingUp, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Calculator, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Download } from "lucide-react";
 import type { Analysis, CostEstimate, CostResult } from "@shared/schema";
+import logoPath from "@assets/image_1774596436652.png";
 
 interface AnalysisResultsProps {
   analysisId: number | null;
@@ -105,6 +106,211 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
     }
   });
 
+  const handleExport = async () => {
+    if (!analysis?.overallCoverage || !analysis.pageBreakdown) return;
+
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 18;
+
+    // Load logo as image
+    const img = new Image();
+    img.src = logoPath;
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+    });
+
+    // Header background
+    doc.setFillColor(13, 42, 79);
+    doc.rect(0, 0, pageW, 42, "F");
+
+    // Logo
+    try {
+      const canvas = window.document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL("image/png");
+        const logoH = 14;
+        const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
+        doc.addImage(dataUrl, "PNG", margin, 10, logoW, logoH);
+      }
+    } catch (_) {}
+
+    // Company name right side
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.text("Sterling Carter Technology Distributors", pageW - margin, 13, { align: "right" });
+    doc.setFontSize(7.5);
+    doc.text("15A Lady Musgrave Road, St. Andrew, Kingston 5, JAMAICA", pageW - margin, 19, { align: "right" });
+    doc.text("info@sctdjm.com  |  (876) 968-6637", pageW - margin, 24, { align: "right" });
+
+    // Report title
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("INK COVERAGE ANALYSIS REPORT", margin, 35);
+
+    let y = 52;
+
+    // Analysis summary
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Analysis Mode: ${mode === "cmyk" ? "CMYK (4 channels)" : "Color + Black (2 cartridges)"}`, margin, y);
+    doc.text(`Total Pages Analyzed: ${analysis.totalPages}`, pageW / 2, y, { align: "left" });
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageW - margin, y, { align: "right" });
+
+    y += 10;
+
+    // Overall Coverage
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(13, 42, 79);
+    doc.text("Overall Ink Coverage", margin, y);
+    y += 6;
+
+    const cov = analysis.overallCoverage;
+    const colorLoad = (cov.cyan + cov.magenta + cov.yellow) / 3;
+
+    const coverageRows = mode === "cmyk"
+      ? [
+          ["Cyan", `${cov.cyan.toFixed(2)}%`],
+          ["Magenta", `${cov.magenta.toFixed(2)}%`],
+          ["Yellow", `${cov.yellow.toFixed(2)}%`],
+          ["Black", `${cov.black.toFixed(2)}%`],
+          ["Total Ink Load", `${(cov.cyan + cov.magenta + cov.yellow + cov.black).toFixed(2)}%`],
+        ]
+      : [
+          ["Color (CMY Average)", `${colorLoad.toFixed(2)}%`],
+          ["Black", `${cov.black.toFixed(2)}%`],
+        ];
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Channel", "Coverage"]],
+      body: coverageRows,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [13, 42, 79], textColor: 255 },
+      alternateRowStyles: { fillColor: [240, 245, 255] },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Page Breakdown table
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(13, 42, 79);
+    doc.text("Page-by-Page Breakdown", margin, y);
+    y += 4;
+
+    const pages = analysis.pageBreakdown;
+    const pageRows = pages.map((p) => {
+      const pgColor = (p.cyan + p.magenta + p.yellow) / 3;
+      return mode === "cmyk"
+        ? [`Page ${p.page}`, `${p.cyan.toFixed(2)}%`, `${p.magenta.toFixed(2)}%`, `${p.yellow.toFixed(2)}%`, `${p.black.toFixed(2)}%`, `${p.total.toFixed(2)}%`]
+        : [`Page ${p.page}`, `${pgColor.toFixed(2)}%`, `${p.black.toFixed(2)}%`, `${(pgColor + p.black).toFixed(2)}%`];
+    });
+
+    const pageHead = mode === "cmyk"
+      ? [["Page", "Cyan %", "Magenta %", "Yellow %", "Black %", "Total %"]]
+      : [["Page", "Color %", "Black %", "Total %"]];
+
+    autoTable(doc, {
+      startY: y,
+      head: pageHead,
+      body: pageRows,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [13, 42, 79], textColor: 255 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Cost Results if available
+    if (costResult) {
+      if (y > 220) { doc.addPage(); y = 20; }
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(13, 42, 79);
+      doc.text("Cost Estimation Results", margin, y);
+      y += 6;
+
+      const costSummary = [
+        ["Base Cost Per Page", `$${costResult.baseCostPerPage.toFixed(4)}`],
+        [`With Waste (${wastePercent}%)`, `$${costResult.adjustedCostPerPage.toFixed(4)}`],
+        ["Range (Min)", `$${costResult.rangeMin.toFixed(4)}`],
+        ["Range (Max)", `$${costResult.rangeMax.toFixed(4)}`],
+      ];
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Description", "Amount / Page"]],
+        body: costSummary,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [13, 42, 79], textColor: 255 },
+        alternateRowStyles: { fillColor: [240, 245, 255] },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 6;
+
+      // Breakdown
+      const breakdownRows: string[][] = [];
+      if (costResult.mode === "cmyk") {
+        if (costResult.breakdown.cyan !== undefined) breakdownRows.push(["Cyan Cartridge", `$${costResult.breakdown.cyan.toFixed(4)}/page`]);
+        if (costResult.breakdown.magenta !== undefined) breakdownRows.push(["Magenta Cartridge", `$${costResult.breakdown.magenta.toFixed(4)}/page`]);
+        if (costResult.breakdown.yellow !== undefined) breakdownRows.push(["Yellow Cartridge", `$${costResult.breakdown.yellow.toFixed(4)}/page`]);
+        if (costResult.breakdown.black !== undefined) breakdownRows.push(["Black Cartridge", `$${costResult.breakdown.black.toFixed(4)}/page`]);
+      } else {
+        if (costResult.breakdown.color !== undefined) breakdownRows.push(["Color Cartridge", `$${costResult.breakdown.color.toFixed(4)}/page`]);
+        if (costResult.breakdown.black !== undefined) breakdownRows.push(["Black Cartridge", `$${costResult.breakdown.black.toFixed(4)}/page`]);
+      }
+
+      if (breakdownRows.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Cartridge", "Cost/Page"]],
+          body: breakdownRows,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9 },
+          headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+          alternateRowStyles: { fillColor: [239, 246, 255] },
+        });
+        y = (doc as any).lastAutoTable.finalY + 6;
+      }
+
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(120, 120, 120);
+      doc.text("Formula: effective yield = rated yield × (5% ÷ actual coverage%). Range shows ±8% variation.", margin, y);
+    }
+
+    // Footer
+    const totalPages = (doc.internal as any).getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, 285, pageW - margin, 285);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.setFont("helvetica", "normal");
+      doc.text("Sterling Carter Technology Distributors  |  info@sctdjm.com  |  (876) 968-6637", margin, 289);
+      doc.text(`Page ${i} of ${totalPages}`, pageW - margin, 289, { align: "right" });
+    }
+
+    doc.save("ink-coverage-report.pdf");
+    toast({ title: "Report exported", description: "Your PDF report has been downloaded." });
+  };
+
   const handleCalculateCost = () => {
     if (!analysis?.overallCoverage) return;
 
@@ -198,13 +404,23 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
       <div className="max-w-5xl mx-auto px-4 space-y-8">
 
         {/* Header */}
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Analysis Results</h2>
-          <p className="text-gray-500">
-            {analysis.totalPages} page{analysis.totalPages !== 1 ? 's' : ''} analyzed
-            &nbsp;·&nbsp;
-            Mode: <span className="font-medium">{mode === "cmyk" ? "CMYK" : "Color + Black"}</span>
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Analysis Results</h2>
+            <p className="text-gray-500">
+              {analysis.totalPages} page{analysis.totalPages !== 1 ? 's' : ''} analyzed
+              &nbsp;·&nbsp;
+              Mode: <span className="font-medium">{mode === "cmyk" ? "CMYK" : "Color + Black"}</span>
+            </p>
+          </div>
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="flex items-center gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
+          >
+            <Download className="w-4 h-4" />
+            Export PDF Report
+          </Button>
         </div>
 
         {/* Coverage Overview */}
