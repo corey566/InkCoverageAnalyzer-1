@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Calculator, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { Calculator, AlertCircle, ChevronDown, ChevronUp, Download } from "lucide-react";
 import type { Analysis, CostEstimate, CostResult } from "@shared/schema";
 import logoPath from "@assets/image_1774596436652.png";
 
@@ -16,11 +14,7 @@ interface AnalysisResultsProps {
 }
 
 function CoverageBar({ label, value, color, bgColor, textColor }: {
-  label: string;
-  value: number;
-  color: string;
-  bgColor: string;
-  textColor: string;
+  label: string; value: number; color: string; bgColor: string; textColor: string;
 }) {
   return (
     <div className={`rounded-xl p-5 ${bgColor}`}>
@@ -29,33 +23,7 @@ function CoverageBar({ label, value, color, bgColor, textColor }: {
         <span className={`text-2xl font-bold ${textColor}`}>{value.toFixed(2)}%</span>
       </div>
       <div className="w-full bg-white bg-opacity-50 rounded-full h-3">
-        <div
-          className={`h-3 rounded-full transition-all duration-700 ${color}`}
-          style={{ width: `${Math.min(value, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ColorLoadBar({ label, value, color, bgColor, textColor }: {
-  label: string;
-  value: number;
-  color: string;
-  bgColor: string;
-  textColor: string;
-}) {
-  return (
-    <div className={`rounded-xl p-5 ${bgColor}`}>
-      <div className="flex justify-between items-center mb-2">
-        <span className={`font-semibold text-sm ${textColor}`}>{label}</span>
-        <span className={`text-2xl font-bold ${textColor}`}>{value.toFixed(2)}%</span>
-      </div>
-      <div className="w-full bg-white bg-opacity-50 rounded-full h-3">
-        <div
-          className={`h-3 rounded-full transition-all duration-700 ${color}`}
-          style={{ width: `${Math.min(value, 100)}%` }}
-        />
+        <div className={`h-3 rounded-full transition-all duration-700 ${color}`} style={{ width: `${Math.min(value, 100)}%` }} />
       </div>
     </div>
   );
@@ -66,7 +34,6 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
   const [showAllPages, setShowAllPages] = useState(false);
   const [costResult, setCostResult] = useState<CostResult | null>(null);
 
-  // CMYK cost inputs
   const [cyanYield, setCyanYield] = useState("1000");
   const [cyanPrice, setCyanPrice] = useState("15");
   const [magentaYield, setMagentaYield] = useState("1000");
@@ -76,7 +43,6 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
   const [blackYield, setBlackYield] = useState("2000");
   const [blackPrice, setBlackPrice] = useState("12");
 
-  // Color+Black cost inputs
   const [colorYield, setColorYield] = useState("500");
   const [colorPrice, setColorPrice] = useState("25");
   const [cbBlackYield, setCbBlackYield] = useState("1000");
@@ -98,9 +64,7 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
       const response = await apiRequest('POST', '/api/estimate', estimate);
       return response.json() as Promise<CostResult>;
     },
-    onSuccess: (result) => {
-      setCostResult(result);
-    },
+    onSuccess: (result) => { setCostResult(result); },
     onError: () => {
       toast({ title: "Estimation failed", description: "Please check your inputs.", variant: "destructive" });
     }
@@ -108,162 +72,63 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
 
   const handleExport = async () => {
     if (!analysis?.overallCoverage || !analysis.pageBreakdown) return;
-
     const { default: jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
-
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const margin = 18;
-
-    // Load logo as image
     const img = new Image();
     img.src = logoPath;
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve();
-      img.onerror = () => resolve();
-    });
-
-    // Header background
-    doc.setFillColor(13, 42, 79);
+    await new Promise<void>((resolve) => { img.onload = () => resolve(); img.onerror = () => resolve(); });
+    doc.setFillColor(10, 35, 16);
     doc.rect(0, 0, pageW, 42, "F");
-
-    // Logo
     try {
       const canvas = window.document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(img, 0, 0);
         const dataUrl = canvas.toDataURL("image/png");
-        const logoH = 14;
-        const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
+        const logoH = 14; const logoW = (img.naturalWidth / img.naturalHeight) * logoH;
         doc.addImage(dataUrl, "PNG", margin, 10, logoW, logoH);
       }
     } catch (_) {}
-
-    // Company name right side
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255); doc.setFontSize(9);
     doc.text("Sterling Carter Technology Distributors", pageW - margin, 13, { align: "right" });
     doc.setFontSize(7.5);
     doc.text("15A Lady Musgrave Road, St. Andrew, Kingston 5, JAMAICA", pageW - margin, 19, { align: "right" });
     doc.text("info@sctdjm.com  |  (876) 968-6637", pageW - margin, 24, { align: "right" });
-
-    // Report title
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11); doc.setFont("helvetica", "bold");
     doc.text("INK COVERAGE ANALYSIS REPORT", margin, 35);
-
     let y = 52;
-
-    // Analysis summary
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 30, 30); doc.setFontSize(9); doc.setFont("helvetica", "normal");
     doc.text(`Analysis Mode: ${mode === "cmyk" ? "CMYK (4 channels)" : "Color + Black (2 cartridges)"}`, margin, y);
     doc.text(`Total Pages Analyzed: ${analysis.totalPages}`, pageW / 2, y, { align: "left" });
     doc.text(`Generated: ${new Date().toLocaleString()}`, pageW - margin, y, { align: "right" });
-
     y += 10;
-
-    // Overall Coverage
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(13, 42, 79);
-    doc.text("Overall Ink Coverage", margin, y);
-    y += 6;
-
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
+    doc.text("Overall Ink Coverage", margin, y); y += 6;
     const cov = analysis.overallCoverage;
     const colorLoad = (cov.cyan + cov.magenta + cov.yellow) / 3;
-
     const coverageRows = mode === "cmyk"
-      ? [
-          ["Cyan", `${cov.cyan.toFixed(2)}%`],
-          ["Magenta", `${cov.magenta.toFixed(2)}%`],
-          ["Yellow", `${cov.yellow.toFixed(2)}%`],
-          ["Black", `${cov.black.toFixed(2)}%`],
-          ["Total Ink Load", `${(cov.cyan + cov.magenta + cov.yellow + cov.black).toFixed(2)}%`],
-        ]
-      : [
-          ["Color (CMY Average)", `${colorLoad.toFixed(2)}%`],
-          ["Black", `${cov.black.toFixed(2)}%`],
-        ];
-
-    autoTable(doc, {
-      startY: y,
-      head: [["Channel", "Coverage"]],
-      body: coverageRows,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [13, 42, 79], textColor: 255 },
-      alternateRowStyles: { fillColor: [240, 245, 255] },
-    });
-
+      ? [["Cyan", `${cov.cyan.toFixed(2)}%`], ["Magenta", `${cov.magenta.toFixed(2)}%`], ["Yellow", `${cov.yellow.toFixed(2)}%`], ["Black", `${cov.black.toFixed(2)}%`], ["Total Ink Load", `${(cov.cyan + cov.magenta + cov.yellow + cov.black).toFixed(2)}%`]]
+      : [["Color (CMY Average)", `${colorLoad.toFixed(2)}%`], ["Black", `${cov.black.toFixed(2)}%`]];
+    autoTable(doc, { startY: y, head: [["Channel", "Coverage"]], body: coverageRows, margin: { left: margin, right: margin }, styles: { fontSize: 9 }, headStyles: { fillColor: [10, 45, 20], textColor: 255 }, alternateRowStyles: { fillColor: [240, 250, 242] } });
     y = (doc as any).lastAutoTable.finalY + 10;
-
-    // Page Breakdown table
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(13, 42, 79);
-    doc.text("Page-by-Page Breakdown", margin, y);
-    y += 4;
-
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
+    doc.text("Page-by-Page Breakdown", margin, y); y += 4;
     const pages = analysis.pageBreakdown;
-    const pageRows = pages.map((p) => {
-      const pgColor = (p.cyan + p.magenta + p.yellow) / 3;
-      return mode === "cmyk"
-        ? [`Page ${p.page}`, `${p.cyan.toFixed(2)}%`, `${p.magenta.toFixed(2)}%`, `${p.yellow.toFixed(2)}%`, `${p.black.toFixed(2)}%`, `${p.total.toFixed(2)}%`]
-        : [`Page ${p.page}`, `${pgColor.toFixed(2)}%`, `${p.black.toFixed(2)}%`, `${(pgColor + p.black).toFixed(2)}%`];
-    });
-
-    const pageHead = mode === "cmyk"
-      ? [["Page", "Cyan %", "Magenta %", "Yellow %", "Black %", "Total %"]]
-      : [["Page", "Color %", "Black %", "Total %"]];
-
-    autoTable(doc, {
-      startY: y,
-      head: pageHead,
-      body: pageRows,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [13, 42, 79], textColor: 255 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-    });
-
+    const pageRows = pages.map((p) => { const pgColor = (p.cyan + p.magenta + p.yellow) / 3; return mode === "cmyk" ? [`Page ${p.page}`, `${p.cyan.toFixed(2)}%`, `${p.magenta.toFixed(2)}%`, `${p.yellow.toFixed(2)}%`, `${p.black.toFixed(2)}%`, `${p.total.toFixed(2)}%`] : [`Page ${p.page}`, `${pgColor.toFixed(2)}%`, `${p.black.toFixed(2)}%`, `${(pgColor + p.black).toFixed(2)}%`]; });
+    const pageHead = mode === "cmyk" ? [["Page", "Cyan %", "Magenta %", "Yellow %", "Black %", "Total %"]] : [["Page", "Color %", "Black %", "Total %"]];
+    autoTable(doc, { startY: y, head: pageHead, body: pageRows, margin: { left: margin, right: margin }, styles: { fontSize: 8 }, headStyles: { fillColor: [10, 45, 20], textColor: 255 }, alternateRowStyles: { fillColor: [248, 252, 249] } });
     y = (doc as any).lastAutoTable.finalY + 10;
-
-    // Cost Results if available
     if (costResult) {
       if (y > 220) { doc.addPage(); y = 20; }
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(13, 42, 79);
-      doc.text("Cost Estimation Results", margin, y);
-      y += 6;
-
-      const costSummary = [
-        ["Base Cost Per Page", `$${costResult.baseCostPerPage.toFixed(4)}`],
-        [`With Waste (${wastePercent}%)`, `$${costResult.adjustedCostPerPage.toFixed(4)}`],
-        ["Range (Min)", `$${costResult.rangeMin.toFixed(4)}`],
-        ["Range (Max)", `$${costResult.rangeMax.toFixed(4)}`],
-      ];
-
-      autoTable(doc, {
-        startY: y,
-        head: [["Description", "Amount / Page"]],
-        body: costSummary,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [13, 42, 79], textColor: 255 },
-        alternateRowStyles: { fillColor: [240, 245, 255] },
-      });
-
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
+      doc.text("Cost Estimation Results", margin, y); y += 6;
+      const costSummary = [["Base Cost Per Page", `$${costResult.baseCostPerPage.toFixed(4)}`], [`With Waste (${wastePercent}%)`, `$${costResult.adjustedCostPerPage.toFixed(4)}`], ["Range (Min)", `$${costResult.rangeMin.toFixed(4)}`], ["Range (Max)", `$${costResult.rangeMax.toFixed(4)}`]];
+      autoTable(doc, { startY: y, head: [["Description", "Amount / Page"]], body: costSummary, margin: { left: margin, right: margin }, styles: { fontSize: 9 }, headStyles: { fillColor: [10, 45, 20], textColor: 255 }, alternateRowStyles: { fillColor: [240, 250, 242] } });
       y = (doc as any).lastAutoTable.finalY + 6;
-
-      // Breakdown
       const breakdownRows: string[][] = [];
       if (costResult.mode === "cmyk") {
         if (costResult.breakdown.cyan !== undefined) breakdownRows.push(["Cyan Cartridge", `$${costResult.breakdown.cyan.toFixed(4)}/page`]);
@@ -274,72 +139,46 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
         if (costResult.breakdown.color !== undefined) breakdownRows.push(["Color Cartridge", `$${costResult.breakdown.color.toFixed(4)}/page`]);
         if (costResult.breakdown.black !== undefined) breakdownRows.push(["Black Cartridge", `$${costResult.breakdown.black.toFixed(4)}/page`]);
       }
-
       if (breakdownRows.length > 0) {
-        autoTable(doc, {
-          startY: y,
-          head: [["Cartridge", "Cost/Page"]],
-          body: breakdownRows,
-          margin: { left: margin, right: margin },
-          styles: { fontSize: 9 },
-          headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-          alternateRowStyles: { fillColor: [239, 246, 255] },
-        });
+        autoTable(doc, { startY: y, head: [["Cartridge", "Cost/Page"]], body: breakdownRows, margin: { left: margin, right: margin }, styles: { fontSize: 9 }, headStyles: { fillColor: [46, 130, 60], textColor: 255 }, alternateRowStyles: { fillColor: [240, 250, 242] } });
         y = (doc as any).lastAutoTable.finalY + 6;
       }
-
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(7.5); doc.setFont("helvetica", "italic"); doc.setTextColor(120, 120, 120);
       doc.text("Formula: effective yield = rated yield × (5% ÷ actual coverage%). Range shows ±8% variation.", margin, y);
     }
-
-    // Footer
     const totalPages = (doc.internal as any).getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setDrawColor(200, 200, 200);
       doc.line(margin, 285, pageW - margin, 285);
-      doc.setFontSize(7);
-      doc.setTextColor(150, 150, 150);
-      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7); doc.setTextColor(150, 150, 150); doc.setFont("helvetica", "normal");
       doc.text("Sterling Carter Technology Distributors  |  info@sctdjm.com  |  (876) 968-6637", margin, 289);
       doc.text(`Page ${i} of ${totalPages}`, pageW - margin, 289, { align: "right" });
     }
-
     doc.save("ink-coverage-report.pdf");
     toast({ title: "Report exported", description: "Your PDF report has been downloaded." });
   };
 
   const handleCalculateCost = () => {
     if (!analysis?.overallCoverage) return;
-
-    const estimate: CostEstimate = {
-      mode,
-      coverage: analysis.overallCoverage,
-      wastePercent: parseFloat(wastePercent) || 10,
-    };
-
+    const estimate: CostEstimate = { mode, coverage: analysis.overallCoverage, wastePercent: parseFloat(wastePercent) || 10 };
     if (mode === "cmyk") {
-      estimate.cyanYield = parseFloat(cyanYield);
-      estimate.cyanPrice = parseFloat(cyanPrice);
-      estimate.magentaYield = parseFloat(magentaYield);
-      estimate.magentaPrice = parseFloat(magentaPrice);
-      estimate.yellowYield = parseFloat(yellowYield);
-      estimate.yellowPrice = parseFloat(yellowPrice);
-      estimate.blackYield = parseFloat(blackYield);
-      estimate.blackPrice = parseFloat(blackPrice);
+      estimate.cyanYield = parseFloat(cyanYield); estimate.cyanPrice = parseFloat(cyanPrice);
+      estimate.magentaYield = parseFloat(magentaYield); estimate.magentaPrice = parseFloat(magentaPrice);
+      estimate.yellowYield = parseFloat(yellowYield); estimate.yellowPrice = parseFloat(yellowPrice);
+      estimate.blackYield = parseFloat(blackYield); estimate.blackPrice = parseFloat(blackPrice);
     } else {
-      estimate.colorYield = parseFloat(colorYield);
-      estimate.colorPrice = parseFloat(colorPrice);
-      estimate.blackYield = parseFloat(cbBlackYield);
-      estimate.blackPrice = parseFloat(cbBlackPrice);
+      estimate.colorYield = parseFloat(colorYield); estimate.colorPrice = parseFloat(colorPrice);
+      estimate.blackYield = parseFloat(cbBlackYield); estimate.blackPrice = parseFloat(cbBlackPrice);
     }
-
     estimateMutation.mutate(estimate);
   };
 
   if (!analysisId) return null;
+
+  const greenSpinner = (
+    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "hsl(133, 55%, 40%)", borderTopColor: "transparent" }} />
+  );
 
   if (isLoading) {
     return (
@@ -362,13 +201,11 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
     return (
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
-          <Card>
-            <CardContent className="p-10 text-center">
-              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-5" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Analyzing Your Document</h3>
-              <p className="text-gray-500">Calculating ink coverage per page. This may take a few minutes for large documents.</p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
+            <div className="w-14 h-14 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-5" style={{ borderColor: "hsl(133, 55%, 40%)", borderTopColor: "transparent" }} />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Analyzing Your Document</h3>
+            <p className="text-gray-500">Calculating ink coverage per page. This may take a few minutes for large documents.</p>
+          </div>
         </div>
       </section>
     );
@@ -378,21 +215,17 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
     return (
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
-          <Card className="border-red-200">
-            <CardContent className="p-8 text-center">
-              <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-red-800 mb-1">Analysis Failed</h3>
-              <p className="text-gray-600">{analysis.errorMessage || "Please try uploading your document again."}</p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-2xl border border-red-200 p-8 text-center" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
+            <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-red-800 mb-1">Analysis Failed</h3>
+            <p className="text-gray-600">{analysis.errorMessage || "Please try uploading your document again."}</p>
+          </div>
         </div>
       </section>
     );
   }
 
-  if (analysis.status !== 'completed' || !analysis.overallCoverage || !analysis.pageBreakdown) {
-    return null;
-  }
+  if (analysis.status !== 'completed' || !analysis.overallCoverage || !analysis.pageBreakdown) return null;
 
   const cov = analysis.overallCoverage;
   const pages = analysis.pageBreakdown;
@@ -406,37 +239,38 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Analysis Results</h2>
-            <p className="text-gray-500">
+            <p className="section-label mb-1">Results</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-1">Analysis Results</h2>
+            <p className="text-gray-500 text-sm">
               {analysis.totalPages} page{analysis.totalPages !== 1 ? 's' : ''} analyzed
               &nbsp;·&nbsp;
               Mode: <span className="font-medium">{mode === "cmyk" ? "CMYK" : "Color + Black"}</span>
             </p>
           </div>
-          <Button
+          <button
             onClick={handleExport}
-            variant="outline"
-            className="flex items-center gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border-2 font-semibold text-sm transition-all"
+            style={{ borderColor: "hsl(133, 48%, 36%)", color: "hsl(133, 48%, 36%)" }}
+            onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = "hsl(133, 48%, 96%)"; }}
+            onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = ""; }}
           >
             <Download className="w-4 h-4" />
             Export PDF Report
-          </Button>
+          </button>
         </div>
 
         {/* Coverage Overview */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg">Overall Ink Coverage</CardTitle>
-            <p className="text-sm text-gray-500">Average across all pages</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="bg-white rounded-2xl border border-gray-100 p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
+          <h3 className="text-base font-bold text-gray-900 mb-1">Overall Ink Coverage</h3>
+          <p className="text-sm text-gray-400 mb-5">Average across all pages</p>
+          <div className="space-y-3">
             {mode === "cmyk" ? (
               <>
                 <CoverageBar label="Cyan" value={cov.cyan} color="bg-cyan-500" bgColor="bg-cyan-50" textColor="text-cyan-900" />
                 <CoverageBar label="Magenta" value={cov.magenta} color="bg-pink-500" bgColor="bg-pink-50" textColor="text-pink-900" />
                 <CoverageBar label="Yellow" value={cov.yellow} color="bg-yellow-400" bgColor="bg-yellow-50" textColor="text-yellow-900" />
                 <CoverageBar label="Black" value={cov.black} color="bg-gray-800" bgColor="bg-gray-100" textColor="text-gray-900" />
-                <div className="pt-2 border-t border-gray-200">
+                <div className="pt-3 border-t border-gray-100">
                   <div className="flex justify-between text-sm font-semibold text-gray-700">
                     <span>Total ink load</span>
                     <span>{(cov.cyan + cov.magenta + cov.yellow + cov.black).toFixed(2)}%</span>
@@ -445,136 +279,118 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
               </>
             ) : (
               <>
-                <ColorLoadBar label="Color (CMY average)" value={colorLoad} color="bg-purple-500" bgColor="bg-purple-50" textColor="text-purple-900" />
-                <ColorLoadBar label="Black" value={cov.black} color="bg-gray-800" bgColor="bg-gray-100" textColor="text-gray-900" />
-                <div className="pt-2 border-t border-gray-200">
-                  <div className="text-xs text-gray-500">
+                <CoverageBar label="Color (CMY average)" value={colorLoad} color="bg-green-500" bgColor="bg-green-50" textColor="text-green-900" />
+                <CoverageBar label="Black" value={cov.black} color="bg-gray-800" bgColor="bg-gray-100" textColor="text-gray-900" />
+                <div className="pt-3 border-t border-gray-100">
+                  <p className="text-xs text-gray-400">
                     Color load is the average of Cyan ({cov.cyan.toFixed(2)}%), Magenta ({cov.magenta.toFixed(2)}%), Yellow ({cov.yellow.toFixed(2)}%)
-                  </div>
+                  </p>
                 </div>
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Page-by-Page Table */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg">Page-by-Page Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-gray-600">
-                    <th className="text-left py-3 px-3 font-semibold">Page</th>
-                    {mode === "cmyk" ? (
-                      <>
-                        <th className="text-right py-3 px-3 font-semibold text-cyan-700">Cyan %</th>
-                        <th className="text-right py-3 px-3 font-semibold text-pink-700">Magenta %</th>
-                        <th className="text-right py-3 px-3 font-semibold text-yellow-700">Yellow %</th>
-                        <th className="text-right py-3 px-3 font-semibold text-gray-700">Black %</th>
-                        <th className="text-right py-3 px-3 font-semibold text-gray-700">Total %</th>
-                      </>
-                    ) : (
-                      <>
-                        <th className="text-right py-3 px-3 font-semibold text-purple-700">Color %</th>
-                        <th className="text-right py-3 px-3 font-semibold text-gray-700">Black %</th>
-                        <th className="text-right py-3 px-3 font-semibold text-gray-700">Total %</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayPages.map((page) => {
-                    const pgColorLoad = (page.cyan + page.magenta + page.yellow) / 3;
-                    return (
-                      <tr key={page.page} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-3 font-medium text-gray-800">Page {page.page}</td>
-                        {mode === "cmyk" ? (
-                          <>
-                            <td className="py-3 px-3 text-right text-cyan-700">{page.cyan.toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-right text-pink-700">{page.magenta.toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-right text-yellow-700">{page.yellow.toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-right text-gray-700">{page.black.toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-right font-semibold text-gray-900">{page.total.toFixed(2)}%</td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="py-3 px-3 text-right text-purple-700">{pgColorLoad.toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-right text-gray-700">{page.black.toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-right font-semibold text-gray-900">{(pgColorLoad + page.black).toFixed(2)}%</td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {pages.length > 5 && (
-              <div className="text-center mt-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllPages(!showAllPages)}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  {showAllPages ? (
-                    <><ChevronUp className="w-4 h-4 mr-1" /> Show less</>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
+          <h3 className="text-base font-bold text-gray-900 mb-5">Page-by-Page Breakdown</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-gray-500">
+                  <th className="text-left py-3 px-3 font-semibold">Page</th>
+                  {mode === "cmyk" ? (
+                    <>
+                      <th className="text-right py-3 px-3 font-semibold text-cyan-700">Cyan %</th>
+                      <th className="text-right py-3 px-3 font-semibold text-pink-700">Magenta %</th>
+                      <th className="text-right py-3 px-3 font-semibold text-yellow-700">Yellow %</th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-700">Black %</th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-700">Total %</th>
+                    </>
                   ) : (
-                    <><ChevronDown className="w-4 h-4 mr-1" /> Show all {pages.length} pages</>
+                    <>
+                      <th className="text-right py-3 px-3 font-semibold text-green-700">Color %</th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-700">Black %</th>
+                      <th className="text-right py-3 px-3 font-semibold text-gray-700">Total %</th>
+                    </>
                   )}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </tr>
+              </thead>
+              <tbody>
+                {displayPages.map((page) => {
+                  const pgColorLoad = (page.cyan + page.magenta + page.yellow) / 3;
+                  return (
+                    <tr key={page.page} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-3 font-semibold text-gray-800">Page {page.page}</td>
+                      {mode === "cmyk" ? (
+                        <>
+                          <td className="py-3 px-3 text-right text-cyan-700">{page.cyan.toFixed(2)}%</td>
+                          <td className="py-3 px-3 text-right text-pink-700">{page.magenta.toFixed(2)}%</td>
+                          <td className="py-3 px-3 text-right text-yellow-700">{page.yellow.toFixed(2)}%</td>
+                          <td className="py-3 px-3 text-right text-gray-700">{page.black.toFixed(2)}%</td>
+                          <td className="py-3 px-3 text-right font-bold text-gray-900">{page.total.toFixed(2)}%</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-3 px-3 text-right text-green-700">{pgColorLoad.toFixed(2)}%</td>
+                          <td className="py-3 px-3 text-right text-gray-700">{page.black.toFixed(2)}%</td>
+                          <td className="py-3 px-3 text-right font-bold text-gray-900">{(pgColorLoad + page.black).toFixed(2)}%</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {pages.length > 5 && (
+            <div className="text-center mt-5">
+              <button
+                onClick={() => setShowAllPages(!showAllPages)}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full transition-colors"
+                style={{ color: "hsl(133, 48%, 36%)" }}
+              >
+                {showAllPages ? (
+                  <><ChevronUp className="w-4 h-4" /> Show less</>
+                ) : (
+                  <><ChevronDown className="w-4 h-4" /> Show all {pages.length} pages</>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Cost Estimator */}
-        <Card className="shadow-md border-blue-100">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-lg">Cost Estimator</CardTitle>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "hsl(133, 48%, 94%)" }}>
+              <Calculator className="w-5 h-5" style={{ color: "hsl(133, 48%, 36%)" }} />
             </div>
-            <p className="text-sm text-gray-500">
-              Based on your ink coverage. Cartridge yield is typically rated at 5% page coverage.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            <h3 className="text-base font-bold text-gray-900">Cost Estimator</h3>
+          </div>
+          <p className="text-sm text-gray-400 mb-6">
+            Based on your ink coverage. Cartridge yield is typically rated at 5% page coverage.
+          </p>
+
+          <div className="space-y-6">
             {mode === "cmyk" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { label: "Cyan", yield: cyanYield, setYield: setCyanYield, price: cyanPrice, setPrice: setCyanPrice, color: "text-cyan-700" },
-                  { label: "Magenta", yield: magentaYield, setYield: setMagentaYield, price: magentaPrice, setPrice: setMagentaPrice, color: "text-pink-700" },
-                  { label: "Yellow", yield: yellowYield, setYield: setYellowYield, price: yellowPrice, setPrice: setYellowPrice, color: "text-yellow-700" },
-                  { label: "Black", yield: blackYield, setYield: setBlackYield, price: blackPrice, setPrice: setBlackPrice, color: "text-gray-800" },
+                  { label: "Cyan", yield: cyanYield, setYield: setCyanYield, price: cyanPrice, setPrice: setCyanPrice, accent: "text-cyan-700", bg: "bg-cyan-50" },
+                  { label: "Magenta", yield: magentaYield, setYield: setMagentaYield, price: magentaPrice, setPrice: setMagentaPrice, accent: "text-pink-700", bg: "bg-pink-50" },
+                  { label: "Yellow", yield: yellowYield, setYield: setYellowYield, price: yellowPrice, setPrice: setYellowPrice, accent: "text-yellow-700", bg: "bg-yellow-50" },
+                  { label: "Black", yield: blackYield, setYield: setBlackYield, price: blackPrice, setPrice: setBlackPrice, accent: "text-gray-800", bg: "bg-gray-100" },
                 ].map((ch) => (
-                  <div key={ch.label} className="p-4 bg-gray-50 rounded-xl">
-                    <p className={`font-semibold mb-3 ${ch.color}`}>{ch.label} Cartridge</p>
-                    <div className="grid grid-cols-2 gap-2">
+                  <div key={ch.label} className={`p-4 ${ch.bg} rounded-xl`}>
+                    <p className={`font-bold mb-3 ${ch.accent} text-sm`}>{ch.label} Cartridge</p>
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label className="text-xs text-gray-500">Yield (pages @ 5%)</Label>
-                        <Input
-                          type="number"
-                          value={ch.yield}
-                          onChange={(e) => ch.setYield(e.target.value)}
-                          className="mt-1 h-9 text-sm"
-                          min="1"
-                        />
+                        <Label className="text-xs text-gray-500 mb-1 block">Rated yield (pages)</Label>
+                        <Input value={ch.yield} onChange={(e) => ch.setYield(e.target.value)} type="number" min="1" className="bg-white h-9 text-sm" />
                       </div>
                       <div>
-                        <Label className="text-xs text-gray-500">Price ($)</Label>
-                        <Input
-                          type="number"
-                          value={ch.price}
-                          onChange={(e) => ch.setPrice(e.target.value)}
-                          className="mt-1 h-9 text-sm"
-                          min="0"
-                          step="0.01"
-                        />
+                        <Label className="text-xs text-gray-500 mb-1 block">Price (USD $)</Label>
+                        <Input value={ch.price} onChange={(e) => ch.setPrice(e.target.value)} type="number" min="0" step="0.01" className="bg-white h-9 text-sm" />
                       </div>
                     </div>
                   </div>
@@ -582,29 +398,29 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-purple-50 rounded-xl">
-                  <p className="font-semibold text-purple-800 mb-3">Color Cartridge</p>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="p-4 bg-green-50 rounded-xl">
+                  <p className="font-bold mb-3 text-green-800 text-sm">Color Cartridge</p>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-gray-500">Yield (pages @ 5%)</Label>
-                      <Input type="number" value={colorYield} onChange={(e) => setColorYield(e.target.value)} className="mt-1 h-9 text-sm" min="1" />
+                      <Label className="text-xs text-gray-500 mb-1 block">Rated yield (pages)</Label>
+                      <Input value={colorYield} onChange={(e) => setColorYield(e.target.value)} type="number" min="1" className="bg-white h-9 text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Price ($)</Label>
-                      <Input type="number" value={colorPrice} onChange={(e) => setColorPrice(e.target.value)} className="mt-1 h-9 text-sm" min="0" step="0.01" />
+                      <Label className="text-xs text-gray-500 mb-1 block">Price (USD $)</Label>
+                      <Input value={colorPrice} onChange={(e) => setColorPrice(e.target.value)} type="number" min="0" step="0.01" className="bg-white h-9 text-sm" />
                     </div>
                   </div>
                 </div>
                 <div className="p-4 bg-gray-100 rounded-xl">
-                  <p className="font-semibold text-gray-800 mb-3">Black Cartridge</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p className="font-bold mb-3 text-gray-800 text-sm">Black Cartridge</p>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-gray-500">Yield (pages @ 5%)</Label>
-                      <Input type="number" value={cbBlackYield} onChange={(e) => setCbBlackYield(e.target.value)} className="mt-1 h-9 text-sm" min="1" />
+                      <Label className="text-xs text-gray-500 mb-1 block">Rated yield (pages)</Label>
+                      <Input value={cbBlackYield} onChange={(e) => setCbBlackYield(e.target.value)} type="number" min="1" className="bg-white h-9 text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Price ($)</Label>
-                      <Input type="number" value={cbBlackPrice} onChange={(e) => setCbBlackPrice(e.target.value)} className="mt-1 h-9 text-sm" min="0" step="0.01" />
+                      <Label className="text-xs text-gray-500 mb-1 block">Price (USD $)</Label>
+                      <Input value={cbBlackPrice} onChange={(e) => setCbBlackPrice(e.target.value)} type="number" min="0" step="0.01" className="bg-white h-9 text-sm" />
                     </div>
                   </div>
                 </div>
@@ -612,117 +428,118 @@ export function AnalysisResults({ analysisId, mode }: AnalysisResultsProps) {
             )}
 
             {/* Waste Factor */}
-            <div className="flex items-end gap-4 p-4 bg-orange-50 rounded-xl">
-              <div className="flex-1">
-                <Label className="text-sm font-semibold text-orange-800">Waste / Variation Factor (%)</Label>
-                <p className="text-xs text-orange-600 mt-0.5">Accounts for cleaning cycles, test prints, and printer waste</p>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <Label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 block">Waste / Variation Factor (%)</Label>
+              <div className="flex items-center gap-4">
                 <Input
-                  type="number"
                   value={wastePercent}
                   onChange={(e) => setWastePercent(e.target.value)}
-                  className="mt-2 h-9 text-sm max-w-xs"
-                  min="0"
-                  max="100"
+                  type="number" min="0" max="100" step="1"
+                  className="max-w-[120px] h-9 text-sm bg-white"
                 />
+                <p className="text-xs text-gray-500">
+                  Accounts for cleaning cycles, residual ink, and calibration waste. Default: 10% for inkjet, 3–6% for laser.
+                </p>
               </div>
             </div>
 
-            <Button
+            {/* Calculate button */}
+            <button
               onClick={handleCalculateCost}
               disabled={estimateMutation.isPending}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold"
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-bold text-white text-sm transition-all disabled:opacity-50"
+              style={{ background: "hsl(133, 55%, 40%)" }}
             >
               {estimateMutation.isPending ? (
-                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />Calculating...</>
+                <>{greenSpinner} Calculating...</>
               ) : (
-                <><Calculator className="w-4 h-4 mr-2" />Calculate Cost Per Page</>
+                <><Calculator className="w-4 h-4" /> Calculate Cost Per Page</>
               )}
-            </Button>
+            </button>
 
-            {/* Cost Results */}
+            {/* Results */}
             {costResult && (
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 space-y-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <h4 className="font-bold text-blue-900 text-lg">Estimated Print Cost</h4>
+              <div className="rounded-xl overflow-hidden border border-green-200">
+                <div className="px-5 py-3 font-bold text-sm text-white" style={{ background: "hsl(133, 55%, 40%)" }}>
+                  Cost Results
+                </div>
+                <div className="grid sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-green-100">
+                  {[
+                    { label: "Base Cost / Page", value: `$${costResult.baseCostPerPage.toFixed(4)}`, sub: "At exact coverage" },
+                    { label: `Adjusted (+${wastePercent}% waste)`, value: `$${costResult.adjustedCostPerPage.toFixed(4)}`, sub: "Recommended estimate" },
+                    { label: "Range (Min)", value: `$${costResult.rangeMin.toFixed(4)}`, sub: "−8% variation" },
+                    { label: "Range (Max)", value: `$${costResult.rangeMax.toFixed(4)}`, sub: "+8% variation" },
+                  ].map((item) => (
+                    <div key={item.label} className="p-4 bg-green-50">
+                      <p className="text-xs text-gray-500 mb-1">{item.label}</p>
+                      <p className="text-xl font-bold" style={{ color: "hsl(133, 48%, 30%)" }}>{item.value}</p>
+                      <p className="text-xs text-gray-400">{item.sub}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-white rounded-xl p-4 shadow-sm">
-                    <p className="text-xs text-gray-500 mb-1">Base Estimate</p>
-                    <p className="text-2xl font-bold text-gray-900">${costResult.baseCostPerPage.toFixed(4)}</p>
-                    <p className="text-xs text-gray-500">/page</p>
+                {/* Cartridge breakdown */}
+                {Object.keys(costResult.breakdown).length > 0 && (
+                  <div className="px-5 py-4 bg-white border-t border-green-100">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Cartridge Breakdown</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {costResult.mode === "cmyk" ? (
+                        <>
+                          {costResult.breakdown.cyan !== undefined && (
+                            <div className="text-center p-3 bg-cyan-50 rounded-xl">
+                              <p className="text-xs text-cyan-600 font-semibold mb-1">Cyan</p>
+                              <p className="text-sm font-bold text-cyan-900">${costResult.breakdown.cyan.toFixed(4)}</p>
+                            </div>
+                          )}
+                          {costResult.breakdown.magenta !== undefined && (
+                            <div className="text-center p-3 bg-pink-50 rounded-xl">
+                              <p className="text-xs text-pink-600 font-semibold mb-1">Magenta</p>
+                              <p className="text-sm font-bold text-pink-900">${costResult.breakdown.magenta.toFixed(4)}</p>
+                            </div>
+                          )}
+                          {costResult.breakdown.yellow !== undefined && (
+                            <div className="text-center p-3 bg-yellow-50 rounded-xl">
+                              <p className="text-xs text-yellow-600 font-semibold mb-1">Yellow</p>
+                              <p className="text-sm font-bold text-yellow-900">${costResult.breakdown.yellow.toFixed(4)}</p>
+                            </div>
+                          )}
+                          {costResult.breakdown.black !== undefined && (
+                            <div className="text-center p-3 bg-gray-100 rounded-xl">
+                              <p className="text-xs text-gray-600 font-semibold mb-1">Black</p>
+                              <p className="text-sm font-bold text-gray-900">${costResult.breakdown.black.toFixed(4)}</p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {costResult.breakdown.color !== undefined && (
+                            <div className="text-center p-3 bg-green-50 rounded-xl">
+                              <p className="text-xs text-green-600 font-semibold mb-1">Color</p>
+                              <p className="text-sm font-bold text-green-900">${costResult.breakdown.color.toFixed(4)}</p>
+                            </div>
+                          )}
+                          {costResult.breakdown.black !== undefined && (
+                            <div className="text-center p-3 bg-gray-100 rounded-xl">
+                              <p className="text-xs text-gray-600 font-semibold mb-1">Black</p>
+                              <p className="text-sm font-bold text-gray-900">${costResult.breakdown.black.toFixed(4)}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="bg-blue-600 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs text-blue-200 mb-1">With Waste ({wastePercent}%)</p>
-                    <p className="text-2xl font-bold text-white">${costResult.adjustedCostPerPage.toFixed(4)}</p>
-                    <p className="text-xs text-blue-200">/page</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-4 shadow-sm">
-                    <p className="text-xs text-gray-500 mb-1">Range (±8%)</p>
-                    <p className="text-sm font-bold text-gray-800">${costResult.rangeMin.toFixed(4)}</p>
-                    <p className="text-xs text-gray-400">to</p>
-                    <p className="text-sm font-bold text-gray-800">${costResult.rangeMax.toFixed(4)}</p>
-                  </div>
-                </div>
+                )}
 
-                {/* Breakdown */}
-                <div className="border-t border-blue-200 pt-4">
-                  <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-2">Cost Breakdown</p>
-                  <div className="space-y-1">
-                    {costResult.mode === "cmyk" ? (
-                      <>
-                        {costResult.breakdown.cyan !== undefined && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-cyan-700">Cyan cartridge</span>
-                            <span className="font-medium">${costResult.breakdown.cyan.toFixed(4)}/page</span>
-                          </div>
-                        )}
-                        {costResult.breakdown.magenta !== undefined && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-pink-700">Magenta cartridge</span>
-                            <span className="font-medium">${costResult.breakdown.magenta.toFixed(4)}/page</span>
-                          </div>
-                        )}
-                        {costResult.breakdown.yellow !== undefined && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-yellow-700">Yellow cartridge</span>
-                            <span className="font-medium">${costResult.breakdown.yellow.toFixed(4)}/page</span>
-                          </div>
-                        )}
-                        {costResult.breakdown.black !== undefined && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-700">Black cartridge</span>
-                            <span className="font-medium">${costResult.breakdown.black.toFixed(4)}/page</span>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {costResult.breakdown.color !== undefined && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-purple-700">Color cartridge</span>
-                            <span className="font-medium">${costResult.breakdown.color.toFixed(4)}/page</span>
-                          </div>
-                        )}
-                        {costResult.breakdown.black !== undefined && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-700">Black cartridge</span>
-                            <span className="font-medium">${costResult.breakdown.black.toFixed(4)}/page</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
+                  <p className="text-xs text-gray-400">
+                    Formula: effective yield = rated yield × (5% ÷ actual coverage%). Range shows ±8% variation.
+                  </p>
                 </div>
-
-                <p className="text-xs text-gray-500 italic">
-                  Formula: effective yield = rated yield × (5% ÷ actual coverage%). Confidence: Medium. Range shows ±8% variation from environmental and operational factors.
-                </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
       </div>
     </section>
   );
