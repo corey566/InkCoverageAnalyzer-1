@@ -7,6 +7,7 @@ import { X, Upload, FileText, Play, Layers, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Document } from "@shared/schema";
+import { DocumentPreview } from "@/components/document-preview";
 
 interface FileUploadProps {
   onAnalysisStart: (documentId: number, mode: "cmyk" | "color_black") => void;
@@ -89,6 +90,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
 
         <Card className="shadow-lg">
           <CardContent className="p-8 space-y-8">
+
 
             {/* Mode Selection */}
             <div>
@@ -201,6 +203,13 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Document Preview */}
+        {uploadedFile && (
+          <div className="mt-6">
+            <DocumentPreview document={uploadedFile} />
+          </div>
+        )}
       </div>
     </section>
   );

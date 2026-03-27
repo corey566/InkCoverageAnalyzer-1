@@ -1,8 +1,13 @@
-# Ink Coverage Estimator - Sterling Carter Technology Distributors
+# Ink Coverage Estimator - Sterling Carter Technology Distributors (SCTD)
 
 ## Overview
 
 A professional web application for print shops and mass printing centers that analyzes ink coverage in documents and calculates cost per page. Supports PDF, EPS, and image formats with CMYK or Color+Black modes.
+
+**Company Contact:**
+- Address: 15A Lady Musgrave Road, St. Andrew, Kingston 5, JAMAICA
+- Email: info@sctdjm.com
+- Phone: (876) 968-6637
 
 ## System Architecture
 
@@ -12,6 +17,7 @@ A professional web application for print shops and mass printing centers that an
 - **State**: TanStack Query v5
 - **Routing**: Wouter
 - **Build**: Vite
+- **PDF Export**: jsPDF + jspdf-autotable
 
 ### Backend
 - **Runtime**: Node.js + Express.js + TypeScript
@@ -21,69 +27,71 @@ A professional web application for print shops and mass printing centers that an
 ## Analysis Engine
 
 ### Primary Method (PDFs): Ghostscript `inkcov` device
-Reads CMYK ink coverage **directly from the PDF's color specifications** without going through RGB conversion. This is what professional tools like EPS Fill use.
-
+Reads CMYK ink coverage **directly from the PDF's color specifications**.
 Output format: `C  M  Y  K  CMYK OK` (values 0.0–1.0 per page)
 
 ### Fallback Method (images + PDF fallback): ImageMagick RGB formula
-Renders each page to RGB with a white background, then calculates CMYK:
-- `C = (1 - mean_R) × 100`
-- `M = (1 - mean_G) × 100`
-- `Y = (1 - mean_B) × 100`
-- `K = (1 - mean_max(R,G,B)) × 100`
-
-This is consistent with the documentation formula: `C = 255-R, M = 255-G, Y = 255-B, K = min(C,M,Y)`.
-
-Critical: Always render PDFs with `-background white -alpha remove` to ensure white paper background.
+Renders each page to RGB with a white background, then calculates CMYK.
 
 ## Features
+
+### Document Preview
+- PDFs: embedded iframe viewer with scroll/navigation
+- Images (PNG, JPG, TIFF): displayed with zoom controls (50–200%)
+- Served via `/api/documents/:id/file` endpoint
 
 ### Analysis Modes
 1. **CMYK Mode** — Separate Cyan, Magenta, Yellow, Black channels
 2. **Color + Black Mode** — Combined color cartridge (CMY average) + black
 
 ### Cost Estimator
-Formula from documentation:
-```
-effective_yield = rated_yield × (5 / actual_coverage)
-cost_per_page = price / effective_yield
-adjusted_cost = base_cost × (1 + waste%)
-```
+Formula: `effective_yield = rated_yield × (5 / actual_coverage)`
+Displays base cost, adjusted cost (with waste factor), variation range (±8%), per-cartridge breakdown.
 
-Displays:
-- Base cost per page
-- Adjusted cost (with waste factor)
-- Variation range (±8%)
-- Per-cartridge breakdown
-
-### Results Display
-- Coverage bars with percentages per channel
+### PDF Export
+Click "Export PDF Report" after analysis to download a formatted PDF with:
+- SCTD logo + contact info in header
+- Overall coverage summary table
 - Page-by-page breakdown table
-- Summary statistics (total ink load)
+- Cost estimation results (if calculated)
+- SCTD footer on each page
+
+## Pages
+
+- `/` — Home (estimator)
+- `/print-management` — Printer brands, ink waste, best practices
+- `/cost-analysis` — Platform comparison (SCTD vs competitors)
+- `/enterprise` — Enterprise solutions description
+- `/documentation` — Step-by-step usage guide + FAQ
+- `/training` — Training modules (beginner to advanced)
+- `/contact` — Contact support form + contact info
+- `/privacy-policy` — Privacy policy (no data retained)
+- `/terms-of-service` — Terms of service
 
 ## API Endpoints
 
 - `POST /api/documents/upload` — Upload file (PDF, PNG, JPG, TIFF, EPS)
-- `POST /api/documents/:id/analyze` — Start analysis (`{ mode: "cmyk" | "color_black" }`)
+- `POST /api/documents/:id/analyze` — Start analysis
+- `GET /api/documents/:id/file` — Serve file for preview
 - `GET /api/analyses/:id` — Poll for results
 - `POST /api/estimate` — Calculate cost per page
 
 ## Key Files
 
 - `server/analysis-engine.ts` — Core CMYK analysis logic
-- `server/routes.ts` — API routes + cost calculation
+- `server/routes.ts` — API routes + cost calculation + file serving
 - `shared/schema.ts` — Types and database schema
-- `client/src/components/file-upload.tsx` — Upload UI + mode selection
-- `client/src/components/analysis-results.tsx` — Results + cost estimator
+- `client/src/components/file-upload.tsx` — Upload UI + document preview
+- `client/src/components/document-preview.tsx` — PDF/image preview component
+- `client/src/components/analysis-results.tsx` — Results + cost estimator + PDF export
+- `client/src/components/header.tsx` — Header with SCTD logo
+- `client/src/components/footer.tsx` — Footer with real contact info
 - `client/src/pages/home.tsx` — Main page
+- `attached_assets/image_1774596436652.png` — SCTD full logo
+- `attached_assets/image_1774596489615.png` — SCTD icon logo
 
 ## Deployment
 
 - Port 5000 (Express serves frontend + API)
 - Max file size: 50MB
 - Node.js 20, PostgreSQL 16 available
-
-## User Preferences
-
-- Simple, everyday language
-- No mock/placeholder data
