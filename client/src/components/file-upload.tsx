@@ -3,11 +3,13 @@ import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Upload, FileText, Play, Layers, Printer } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { X, Upload, FileText, Play, Layers, Printer, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Document } from "@shared/schema";
 import { DocumentPreview } from "@/components/document-preview";
+import { Link } from "wouter";
 
 interface FileUploadProps {
   onAnalysisStart: (documentId: number, mode: "cmyk" | "color_black") => void;
@@ -24,6 +26,7 @@ function formatFileSize(bytes: number): string {
 export function FileUpload({ onAnalysisStart }: FileUploadProps) {
   const [uploadedFile, setUploadedFile] = useState<Document | null>(null);
   const [mode, setMode] = useState<AnalysisMode>("cmyk");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
 
   const uploadMutation = useMutation({
@@ -56,8 +59,12 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
   });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (!termsAccepted) {
+      toast({ title: "Agreement required", description: "Please accept the Terms of Service and Privacy Policy before uploading.", variant: "destructive" });
+      return;
+    }
     if (acceptedFiles[0]) uploadMutation.mutate(acceptedFiles[0]);
-  }, [uploadMutation]);
+  }, [uploadMutation, termsAccepted]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -127,22 +134,78 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
               </div>
             </div>
 
+            {/* Terms & Privacy Agreement */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Agreement Required</h3>
+              <div className={`rounded-xl border-2 p-4 transition-colors ${termsAccepted ? "border-green-300 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {termsAccepted ? (
+                      <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <ShieldAlert className="w-6 h-6 text-amber-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold mb-1 ${termsAccepted ? "text-green-800" : "text-amber-800"}`}>
+                      {termsAccepted ? "You have agreed to the terms" : "Please agree before uploading"}
+                    </p>
+                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                      By uploading a document you confirm that you have read and agree to our{" "}
+                      <Link href="/terms-of-service" className="text-blue-600 hover:underline font-medium" target="_blank">
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/privacy-policy" className="text-blue-600 hover:underline font-medium" target="_blank">
+                        Privacy Policy
+                      </Link>
+                      . Your document will be processed for ink coverage analysis only and will not be retained on our servers.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="terms-accept"
+                        checked={termsAccepted}
+                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                      />
+                      <label
+                        htmlFor="terms-accept"
+                        className="text-sm text-gray-700 cursor-pointer select-none font-medium"
+                      >
+                        I agree to the Terms of Service and Privacy Policy
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* File Upload Area */}
             <div>
               <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Upload Document</h3>
               {!uploadedFile ? (
                 <div
-                  {...getRootProps()}
-                  className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
-                    isDragActive
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
+                  {...(termsAccepted ? getRootProps() : {})}
+                  className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
+                    !termsAccepted
+                      ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+                      : isDragActive
+                        ? "border-blue-500 bg-blue-50 cursor-pointer"
+                        : "border-gray-300 hover:border-blue-400 hover:bg-gray-50 cursor-pointer"
                   }`}
                 >
-                  <input {...getInputProps()} />
-                  <Upload className="w-10 h-10 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-700 mb-1">
-                    {isDragActive ? "Drop your file here" : "Drag & drop or click to browse"}
+                  {termsAccepted && <input {...getInputProps()} />}
+                  <Upload className={`w-10 h-10 mx-auto mb-4 ${termsAccepted ? "text-gray-400" : "text-gray-300"}`} />
+                  <p className={`text-lg font-medium mb-1 ${termsAccepted ? "text-gray-700" : "text-gray-400"}`}>
+                    {!termsAccepted
+                      ? "Accept the terms above to enable upload"
+                      : isDragActive
+                        ? "Drop your file here"
+                        : "Drag & drop or click to browse"}
                   </p>
                   <p className="text-sm text-gray-500">PDF, PNG, JPG, TIFF, EPS — up to 50MB</p>
                   {uploadMutation.isPending && (
@@ -179,7 +242,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
             <div className="text-center">
               <Button
                 onClick={handleStartAnalysis}
-                disabled={!uploadedFile || analyzeMutation.isPending}
+                disabled={!uploadedFile || analyzeMutation.isPending || !termsAccepted}
                 size="lg"
                 className="px-10 py-4 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50"
               >
