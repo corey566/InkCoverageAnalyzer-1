@@ -26,14 +26,9 @@ const BUCKET_META: Record<ColorBucketKey, { label: string; cssBg: string; cssBar
   cyan:    { label: "Cyan",    cssBg: "bg-cyan-50",    cssBar: "bg-cyan-500",  cssText: "text-cyan-900", cssDot: "#06b6d4" },
   magenta: { label: "Magenta", cssBg: "bg-pink-50",    cssBar: "bg-pink-500",  cssText: "text-pink-900", cssDot: "#ec4899" },
   yellow:  { label: "Yellow",  cssBg: "bg-yellow-50",  cssBar: "bg-yellow-400",cssText: "text-yellow-900",cssDot: "#eab308" },
-  red:     { label: "Red",     cssBg: "bg-red-50",     cssBar: "bg-red-500",   cssText: "text-red-900",  cssDot: "#ef4444" },
-  green:   { label: "Green",   cssBg: "bg-green-50",   cssBar: "bg-green-500", cssText: "text-green-900",cssDot: "#22c55e" },
-  blue:    { label: "Blue",    cssBg: "bg-blue-50",    cssBar: "bg-blue-500",  cssText: "text-blue-900", cssDot: "#3b82f6" },
-  gray:    { label: "Gray",    cssBg: "bg-slate-100",  cssBar: "bg-slate-400", cssText: "text-slate-900",cssDot: "#94a3b8" },
-  other:   { label: "Other / Mixed", cssBg: "bg-amber-50", cssBar: "bg-amber-500", cssText: "text-amber-900", cssDot: "#f59e0b" },
 };
 
-const ALL_KEYS: ColorBucketKey[] = ["black", "cyan", "magenta", "yellow", "red", "green", "blue", "gray", "other"];
+const ALL_KEYS: ColorBucketKey[] = ["black", "cyan", "magenta", "yellow"];
 
 function nonZero(buckets: ColorBuckets): Array<[ColorBucketKey, number]> {
   return ALL_KEYS.map((k) => [k, buckets[k]] as [ColorBucketKey, number]).filter(([, v]) => v > 0.005);

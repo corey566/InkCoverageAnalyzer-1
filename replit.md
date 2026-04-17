@@ -33,11 +33,12 @@ Every displayed percentage is a share of the full page; totals never exceed 100%
 1. Render each page (PDF/EPS/image) at the user-selected DPI, composited onto a
    white canvas matching the user's chosen page size (A4, Letter, Legal, Tabloid,
    Custom, or auto-detected from PDF metadata).
-2. Walk every pixel and assign it to **one** bucket:
-   `black`, `cyan`, `magenta`, `yellow`, `red`, `green`, `blue`, `gray`, `other`.
-   Near-white pixels are counted as `blankArea` (uncovered paper).
-3. Aggregate counts as page-area %. Total coverage = sum of color buckets;
-   blank = 100 − total.
+2. Walk every pixel and assign it to exactly **one** of the four CMYK buckets:
+   `black`, `cyan`, `magenta`, `yellow`. Each pixel is converted RGB→CMYK and
+   bucketed by its dominant channel (ties favor K). Near-white pixels are
+   counted as `blankArea` (uncovered paper).
+3. Aggregate counts as page-area %. Total coverage = Black + Cyan + Magenta + Yellow;
+   blank = 100 − total. No bucket and no sum ever exceeds 100%.
 
 In B&W mode every covered pixel is bucketed as `black`; the result is the total
 inked area as a single percentage of the page.
