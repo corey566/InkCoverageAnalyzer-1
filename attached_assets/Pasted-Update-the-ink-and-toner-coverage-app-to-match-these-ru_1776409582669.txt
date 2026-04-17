@@ -1,0 +1,203 @@
+Update the ink and toner coverage app to match these rules exactly.
+
+## Main correction
+
+The app must **not** show color percentages that add up to more than 100% of the page.
+
+Right now, the app is summing independent CMYK channel coverage values, which can exceed 100%. That is not the behavior I want.
+
+I want the app to calculate **page-area coverage**, not cumulative ink load.
+
+## Required behavior
+
+For every analyzed page:
+
+1. Treat the full page as **100% total area**.
+2. Measure how much of that page area is actually covered by printed content.
+3. Break that covered area into color categories so that:
+
+   * each color shows a percentage of the full page
+   * the total of all displayed color percentages **never exceeds 100%**
+   * if all displayed color percentages are added together, they should equal the total covered area on the page
+4. Any uncovered part of the page is blank paper and should not be counted as ink coverage.
+
+## Important rule
+
+The displayed color percentages must be based on **mutually exclusive page regions**.
+
+That means:
+
+* a single pixel or area of the page must belong to only **one displayed category**
+* do **not** count the same pixel in Cyan, Magenta, Yellow, and Black at the same time
+* do **not** use additive CMYK channel totals for the displayed percentages
+
+## How to classify color coverage
+
+For display purposes, assign each non-white pixel to one dominant bucket only.
+
+Use a single classification result per pixel, such as:
+
+* Black
+* Cyan
+* Magenta
+* Yellow
+* Red
+* Green
+* Blue
+* Gray
+* Other / Mixed Color
+
+If using CMYK mode, still make the displayed page percentages mutually exclusive.
+Do not show per-channel CMYK values in a way that lets the total exceed 100%.
+
+If needed, keep technical CMYK ink-load data internally or in a separate advanced section, but the main user-facing coverage percentages must stay within 0–100% total page area.
+
+## Page size and calibration
+
+Before analysis, the user must be able to select the page size.
+
+Add page-size selection before calculation:
+
+* A4
+* Letter
+* Legal
+* Tabloid
+* Custom width and height
+
+Rules:
+
+* If the uploaded PDF already contains page dimensions, auto-detect and prefill them
+* Still allow the user to override the detected page size
+* If the file is an image, require page size selection or a fit-to-page option before analysis
+* All percentage calculations must be calibrated against the selected final page size
+
+## Resolution
+
+Add resolution selection before analysis:
+
+* 72 DPI
+* 150 DPI
+* 300 DPI
+* 600 DPI
+
+Use the selected resolution in the analysis pipeline.
+
+## Analysis modes
+
+Add modes:
+
+* Black and White
+* Color
+
+### Black and White mode
+
+* Convert page content to grayscale / black coverage analysis
+* Show black coverage as a percentage of total page area
+* That value must stay between 0% and 100%
+
+### Color mode
+
+* Show page-area color distribution
+* Total visible color percentages must not exceed 100%
+
+## Multi-page documents
+
+For PDFs and other multi-page files:
+
+* analyze every page individually
+* show per-page results
+* show document average results
+* show total page count analyzed
+
+## Results UI requirements
+
+Replace the current misleading coverage display.
+
+Show:
+
+* Total page coverage
+* Blank page percentage
+* Color distribution by page area
+* Per-page breakdown
+* Document average
+
+Example:
+
+* Total page coverage: 63.40%
+* Blank paper: 36.60%
+* Black: 20.10%
+* Blue: 15.50%
+* Red: 12.30%
+* Gray: 8.20%
+* Other: 7.30%
+
+The sum of displayed color categories must equal total page coverage, and total page coverage must never exceed 100%.
+
+## Terminology
+
+Use these labels clearly:
+
+* Page Coverage
+* Blank Area
+* Color Distribution
+* Per-Page Breakdown
+* Average Coverage
+
+Do **not** label summed channel values as “coverage” if they can exceed 100%.
+
+Avoid labels like:
+
+* Overall Ink Coverage: 288%
+* Total Coverage: 288%
+
+That is incorrect for this app.
+
+## Cost calculation
+
+Printing cost must be based on the corrected page-area coverage logic and the selected print mode.
+
+Inputs:
+
+* number of copies
+* cartridge or toner cost
+* cartridge yield
+* standard page coverage reference
+* selected print mode
+
+### Black and White cost
+
+Estimate cost from black page coverage only.
+
+### Color cost
+
+Estimate cost from the displayed page-area coverage method or a well-defined color-cost model, but do not confuse this with additive CMYK percentages.
+
+## Export
+
+Keep export support for:
+
+* PDF report
+* table-style data that can be copied into Excel
+
+## Implementation requirement
+
+Refactor the calculation logic so that:
+
+* user-facing percentages are always page-area based
+* percentages are mutually exclusive
+* totals never exceed 100%
+* page size is selected before analysis and used in the calculation
+* PDF metadata can prefill page dimensions
+* results are consistent across single-page and multi-page documents
+
+## Final goal
+
+The app should behave like a proper document coverage analyzer:
+
+* user selects page size, resolution, and mode first
+* app analyzes the document against the full page area
+* every displayed percentage is based on actual covered page area
+* displayed percentages never exceed 100% total
+* results are easy to understand and suitable for print-cost estimation
+
+Do not redesign unrelated parts of the app. Only update the analysis logic, calculation model, settings inputs, labels, and results display so the behavior matches these requirements exactly.
