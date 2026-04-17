@@ -8,11 +8,12 @@ import { Calculator, AlertCircle, ChevronDown, ChevronUp, Download, FileSpreadsh
 import type {
   Analysis,
   AnalysisSettings,
+  ChannelCoverage,
   CostEstimate,
   CostResult,
-  ColorBuckets,
-  ColorBucketKey,
   PageAnalysis,
+  PrinterType,
+  ColorMode,
 } from "@shared/schema";
 import logoPath from "@assets/image_1774596436652.png";
 
@@ -21,21 +22,24 @@ interface AnalysisResultsProps {
   settings: AnalysisSettings | null;
 }
 
-const BUCKET_META: Record<ColorBucketKey, { label: string; cssBg: string; cssBar: string; cssText: string; cssDot: string }> = {
-  black:   { label: "Black",   cssBg: "bg-gray-100",   cssBar: "bg-gray-800",  cssText: "text-gray-900", cssDot: "#1f2937" },
-  cyan:    { label: "Cyan",    cssBg: "bg-cyan-50",    cssBar: "bg-cyan-500",  cssText: "text-cyan-900", cssDot: "#06b6d4" },
-  magenta: { label: "Magenta", cssBg: "bg-pink-50",    cssBar: "bg-pink-500",  cssText: "text-pink-900", cssDot: "#ec4899" },
-  yellow:  { label: "Yellow",  cssBg: "bg-yellow-50",  cssBar: "bg-yellow-400",cssText: "text-yellow-900",cssDot: "#eab308" },
+type ChannelKey = "black" | "cyan" | "magenta" | "yellow" | "color";
+
+const CHANNEL_META: Record<ChannelKey, { label: string; cssBar: string; cssDot: string; cssBg: string }> = {
+  black:   { label: "Black",   cssBar: "bg-gray-800",  cssDot: "#1f2937", cssBg: "bg-gray-100" },
+  cyan:    { label: "Cyan",    cssBar: "bg-cyan-500",  cssDot: "#06b6d4", cssBg: "bg-cyan-50" },
+  magenta: { label: "Magenta", cssBar: "bg-pink-500",  cssDot: "#ec4899", cssBg: "bg-pink-50" },
+  yellow:  { label: "Yellow",  cssBar: "bg-yellow-400",cssDot: "#eab308", cssBg: "bg-yellow-50" },
+  color:   { label: "Color (CMY)", cssBar: "bg-indigo-500", cssDot: "#6366f1", cssBg: "bg-indigo-50" },
 };
 
-const ALL_KEYS: ColorBucketKey[] = ["black", "cyan", "magenta", "yellow"];
-
-function nonZero(buckets: ColorBuckets): Array<[ColorBucketKey, number]> {
-  return ALL_KEYS.map((k) => [k, buckets[k]] as [ColorBucketKey, number]).filter(([, v]) => v > 0.005);
+function activeKeys(printerType: PrinterType, mode: ColorMode): ChannelKey[] {
+  if (mode === "bw") return ["black"];
+  if (printerType === "cmyk") return ["black", "cyan", "magenta", "yellow"];
+  return ["black", "color"];
 }
 
-function CoverageBar({ label, value, dotColor, barClass, max = 100 }: {
-  label: string; value: number; dotColor: string; barClass: string; max?: number;
+function CoverageCard({ label, value, dotColor, barClass }: {
+  label: string; value: number; dotColor: string; barClass: string;
 }) {
   return (
     <div className="rounded-xl p-4 bg-white border border-gray-100">
@@ -47,7 +51,7 @@ function CoverageBar({ label, value, dotColor, barClass, max = 100 }: {
         <span className="text-lg font-bold text-gray-900">{value.toFixed(2)}%</span>
       </div>
       <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-700 ${barClass}`} style={{ width: `${Math.min((value / max) * 100, 100)}%` }} />
+        <div className={`h-full rounded-full transition-all duration-700 ${barClass}`} style={{ width: `${Math.min(value, 100)}%` }} />
       </div>
     </div>
   );
@@ -59,12 +63,18 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
   const [costResult, setCostResult] = useState<CostResult | null>(null);
 
   const [copies, setCopies] = useState("100");
-  const [blackYield, setBlackYield] = useState("2000");
-  const [blackPrice, setBlackPrice] = useState("12");
-  const [colorYield, setColorYield] = useState("1500");
-  const [colorPrice, setColorPrice] = useState("25");
   const [referenceCoverage, setReferenceCoverage] = useState("5");
   const [wastePercent, setWastePercent] = useState("10");
+
+  // Per-cartridge inputs
+  const [blackYield, setBlackYield] = useState("2000");
+  const [blackPrice, setBlackPrice] = useState("12");
+  // CMYK
+  const [cyanYield, setCyanYield] = useState("1500");    const [cyanPrice, setCyanPrice] = useState("18");
+  const [magentaYield, setMagentaYield] = useState("1500"); const [magentaPrice, setMagentaPrice] = useState("18");
+  const [yellowYield, setYellowYield] = useState("1500");   const [yellowPrice, setYellowPrice] = useState("18");
+  // Color cartridge (color-black printer)
+  const [colorYield, setColorYield] = useState("1500"); const [colorPrice, setColorPrice] = useState("25");
 
   const { data: analysis, isLoading } = useQuery<Analysis>({
     queryKey: [`/api/analyses/${analysisId}`],
@@ -75,8 +85,10 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     },
   });
 
-  const colorMode = (analysis?.settings?.colorMode || settings?.colorMode || "color") as "color" | "bw";
   const usedSettings = (analysis?.settings || settings) as AnalysisSettings | null;
+  const printerType = usedSettings?.printerType || "cmyk";
+  const colorMode = usedSettings?.colorMode || "color";
+  const keys = activeKeys(printerType, colorMode);
 
   const estimateMutation = useMutation({
     mutationFn: async (estimate: CostEstimate) => {
@@ -89,60 +101,57 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
 
   const handleCalculateCost = () => {
     if (!analysis?.overallCoverage) return;
-    const cov = analysis.overallCoverage;
-    const blackCoverage = cov.colors.black;
-    const colorCoverage = Math.max(0, cov.totalCoverage - blackCoverage);
+    const ch = analysis.overallCoverage.channels;
     const estimate: CostEstimate = {
+      printerType,
       mode: colorMode,
-      totalCoverage: cov.totalCoverage,
-      blackCoverage,
-      colorCoverage: colorMode === "bw" ? 0 : colorCoverage,
       copies: parseInt(copies, 10) || 1,
       wastePercent: parseFloat(wastePercent) || 0,
+      referenceCoverage: parseFloat(referenceCoverage) || 5,
+      channels: ch,
       blackYield: parseFloat(blackYield),
       blackPrice: parseFloat(blackPrice),
-      referenceCoverage: parseFloat(referenceCoverage) || 5,
     };
     if (colorMode === "color") {
-      estimate.colorYield = parseFloat(colorYield);
-      estimate.colorPrice = parseFloat(colorPrice);
+      if (printerType === "cmyk") {
+        estimate.cyanYield = parseFloat(cyanYield);       estimate.cyanPrice = parseFloat(cyanPrice);
+        estimate.magentaYield = parseFloat(magentaYield); estimate.magentaPrice = parseFloat(magentaPrice);
+        estimate.yellowYield = parseFloat(yellowYield);   estimate.yellowPrice = parseFloat(yellowPrice);
+      } else {
+        estimate.colorYield = parseFloat(colorYield);
+        estimate.colorPrice = parseFloat(colorPrice);
+      }
     }
     estimateMutation.mutate(estimate);
   };
 
   const handleExportCSV = () => {
     if (!analysis?.overallCoverage || !analysis.pageBreakdown) return;
-    const cov = analysis.overallCoverage;
+    const ch = analysis.overallCoverage.channels;
     const rows: string[][] = [];
-    rows.push(["Sterling Carter — Page Coverage Report"]);
+    rows.push(["Sterling Carter — Coverage Report"]);
     rows.push([`Generated: ${new Date().toLocaleString()}`]);
-    rows.push([`Mode: ${colorMode === "bw" ? "Black & White" : "Color"}`]);
+    rows.push([`Printer type: ${printerType === "cmyk" ? "CMYK Cartridge" : "Color & Black Cartridge"}`]);
+    rows.push([`Print mode: ${colorMode === "bw" ? "Black & White" : "Color"}`]);
     if (usedSettings) {
       rows.push([`Page size: ${usedSettings.pageSize.preset} (${usedSettings.pageSize.widthMM}×${usedSettings.pageSize.heightMM} mm)`]);
       rows.push([`Resolution: ${usedSettings.resolutionDPI} DPI`]);
     }
     rows.push([`Total pages analyzed: ${analysis.totalPages}`]);
     rows.push([]);
-    rows.push(["Document Average"]);
-    rows.push(["Total page coverage", `${cov.totalCoverage.toFixed(2)}%`]);
-    rows.push(["Blank paper", `${cov.blankArea.toFixed(2)}%`]);
-    nonZero(cov.colors).forEach(([k, v]) => rows.push([BUCKET_META[k].label, `${v.toFixed(2)}%`]));
+    rows.push(["Document Average Cartridge Coverage"]);
+    keys.forEach((k) => rows.push([CHANNEL_META[k].label, `${(ch[k] ?? 0).toFixed(2)}%`]));
     rows.push([]);
     rows.push(["Per-Page Breakdown"]);
-    rows.push(["Page", "Coverage %", "Blank %", ...ALL_KEYS.map((k) => `${BUCKET_META[k].label} %`)]);
+    rows.push(["Page", ...keys.map((k) => `${CHANNEL_META[k].label} %`)]);
     analysis.pageBreakdown.forEach((p) => {
-      rows.push([
-        String(p.page),
-        p.totalCoverage.toFixed(2),
-        p.blankArea.toFixed(2),
-        ...ALL_KEYS.map((k) => p.colors[k].toFixed(2)),
-      ]);
+      rows.push([String(p.page), ...keys.map((k) => (p.channels[k] ?? 0).toFixed(2))]);
     });
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "page-coverage-report.csv"; a.click();
+    a.href = url; a.download = "coverage-report.csv"; a.click();
     URL.revokeObjectURL(url);
     toast({ title: "CSV exported", description: "Open in Excel or any spreadsheet app." });
   };
@@ -176,30 +185,28 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     doc.text("15A Lady Musgrave Road, St. Andrew, Kingston 5, JAMAICA", pageW - margin, 19, { align: "right" });
     doc.text("info@sctdjm.com  |  (876) 968-6637", pageW - margin, 24, { align: "right" });
     doc.setFontSize(11); doc.setFont("helvetica", "bold");
-    doc.text("PAGE COVERAGE ANALYSIS REPORT", margin, 35);
+    doc.text("INK / TONER COVERAGE ANALYSIS REPORT", margin, 35);
 
     let y = 52;
     doc.setTextColor(30, 30, 30); doc.setFontSize(9); doc.setFont("helvetica", "normal");
-    doc.text(`Mode: ${colorMode === "bw" ? "Black & White" : "Color"}`, margin, y);
+    doc.text(`Printer: ${printerType === "cmyk" ? "CMYK Cartridge" : "Color & Black"}`, margin, y);
+    doc.text(`Mode: ${colorMode === "bw" ? "Black & White" : "Color"}`, pageW / 2, y);
     if (usedSettings) {
-      doc.text(`Page: ${usedSettings.pageSize.preset} (${usedSettings.pageSize.widthMM}×${usedSettings.pageSize.heightMM} mm)`, pageW / 2, y, { align: "left" });
-      doc.text(`Resolution: ${usedSettings.resolutionDPI} DPI`, pageW - margin, y, { align: "right" });
+      doc.text(`${usedSettings.resolutionDPI} DPI`, pageW - margin, y, { align: "right" });
+      y += 5;
+      doc.text(`Page: ${usedSettings.pageSize.preset} (${usedSettings.pageSize.widthMM}×${usedSettings.pageSize.heightMM} mm)`, margin, y);
     }
-    y += 6;
+    y += 5;
     doc.text(`Pages analyzed: ${analysis.totalPages}`, margin, y);
     doc.text(`Generated: ${new Date().toLocaleString()}`, pageW - margin, y, { align: "right" });
     y += 10;
 
-    const cov = analysis.overallCoverage;
+    const ch = analysis.overallCoverage.channels;
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
-    doc.text("Document Average — Page Coverage", margin, y); y += 4;
-    const summaryRows: string[][] = [
-      ["Total page coverage", `${cov.totalCoverage.toFixed(2)}%`],
-      ["Blank paper", `${cov.blankArea.toFixed(2)}%`],
-    ];
-    nonZero(cov.colors).forEach(([k, v]) => summaryRows.push([BUCKET_META[k].label, `${v.toFixed(2)}%`]));
+    doc.text("Document Average — Cartridge Coverage", margin, y); y += 4;
+    const summaryRows: string[][] = keys.map((k) => [CHANNEL_META[k].label, `${(ch[k] ?? 0).toFixed(2)}%`]);
     autoTable(doc, {
-      startY: y, head: [["Category", "% of Page"]], body: summaryRows,
+      startY: y, head: [["Cartridge", "Average Coverage"]], body: summaryRows,
       margin: { left: margin, right: margin }, styles: { fontSize: 9 },
       headStyles: { fillColor: [10, 45, 20], textColor: 255 },
       alternateRowStyles: { fillColor: [240, 250, 242] },
@@ -208,17 +215,15 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
 
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
     doc.text("Per-Page Breakdown", margin, y); y += 4;
-    const head = [["Page", "Coverage %", "Blank %", ...ALL_KEYS.map((k) => BUCKET_META[k].label)]];
+    const head = [["Page", ...keys.map((k) => CHANNEL_META[k].label)]];
     const body = analysis.pageBreakdown.map((p) => [
       `Page ${p.page}`,
-      `${p.totalCoverage.toFixed(2)}%`,
-      `${p.blankArea.toFixed(2)}%`,
-      ...ALL_KEYS.map((k) => `${p.colors[k].toFixed(2)}%`),
+      ...keys.map((k) => `${(p.channels[k] ?? 0).toFixed(2)}%`),
     ]);
     autoTable(doc, {
       startY: y, head, body,
-      margin: { left: margin, right: margin }, styles: { fontSize: 7 },
-      headStyles: { fillColor: [10, 45, 20], textColor: 255, fontSize: 7 },
+      margin: { left: margin, right: margin }, styles: { fontSize: 8 },
+      headStyles: { fillColor: [10, 45, 20], textColor: 255, fontSize: 8 },
       alternateRowStyles: { fillColor: [248, 252, 249] },
     });
     y = (doc as any).lastAutoTable.finalY + 8;
@@ -251,7 +256,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
       doc.text("Sterling Carter Technology Distributors  |  info@sctdjm.com  |  (876) 968-6637", margin, 289);
       doc.text(`Page ${i} of ${totalPages}`, pageW - margin, 289, { align: "right" });
     }
-    doc.save("page-coverage-report.pdf");
+    doc.save("coverage-report.pdf");
     toast({ title: "Report exported", description: "Your PDF report has been downloaded." });
   };
 
@@ -279,7 +284,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
           <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
             <div className="w-14 h-14 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-5" style={{ borderColor: "hsl(133, 55%, 40%)", borderTopColor: "transparent" }} />
             <h3 className="text-xl font-bold text-gray-900 mb-2">Analyzing Your Document</h3>
-            <p className="text-gray-500">Calculating page-area coverage. Higher resolution and more pages take longer.</p>
+            <p className="text-gray-500">Calculating cartridge coverage. Higher resolution and more pages take longer.</p>
           </div>
         </div>
       </section>
@@ -302,12 +307,11 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
 
   if (analysis.status !== "completed" || !analysis.overallCoverage || !analysis.pageBreakdown) return null;
 
-  const cov = analysis.overallCoverage;
+  const ch: ChannelCoverage = analysis.overallCoverage.channels;
   const pages = analysis.pageBreakdown as PageAnalysis[];
   const displayPages = showAllPages ? pages : pages.slice(0, 5);
-  const visibleBuckets = colorMode === "bw"
-    ? [["black", cov.colors.black] as [ColorBucketKey, number]]
-    : nonZero(cov.colors);
+  const printerLabel = printerType === "cmyk" ? "CMYK Cartridge Analysis" : "Color & Black Cartridge";
+  const modeLabel = colorMode === "bw" ? "Black & White Print" : "Color Print";
 
   return (
     <section id="results" className="py-16 bg-white">
@@ -316,14 +320,11 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <p className="section-label mb-1">Results</p>
-            <h2 className="text-3xl font-bold text-gray-900 mb-1">Page Coverage Results</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-1">Cartridge Coverage Results</h2>
             <p className="text-gray-500 text-sm">
-              {analysis.totalPages} page{analysis.totalPages !== 1 ? "s" : ""} analyzed
+              {analysis.totalPages} page{analysis.totalPages !== 1 ? "s" : ""} analyzed · {printerLabel} · {modeLabel}
               {usedSettings && (
-                <>
-                  {" · "}{usedSettings.pageSize.preset} ({usedSettings.pageSize.widthMM}×{usedSettings.pageSize.heightMM} mm)
-                  {" · "}{usedSettings.resolutionDPI} DPI · {colorMode === "bw" ? "B&W" : "Color"}
-                </>
+                <> · {usedSettings.pageSize.preset} ({usedSettings.pageSize.widthMM}×{usedSettings.pageSize.heightMM} mm) · {usedSettings.resolutionDPI} DPI</>
               )}
             </p>
           </div>
@@ -345,70 +346,29 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
           </div>
         </div>
 
-        {/* Overall coverage summary */}
+        {/* Cartridge coverage summary */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
-          <h3 className="text-base font-bold text-gray-900 mb-1">Document Average — Page Coverage</h3>
+          <h3 className="text-base font-bold text-gray-900 mb-1">Document Average — Cartridge Coverage</h3>
           <p className="text-sm text-gray-400 mb-5">
-            Every percentage shown is a share of the full page area. They are mutually exclusive and never exceed 100%.
+            Each value is the average ink load on that cartridge across the page area. Cartridges are independent
+            (an area printed in green uses both Cyan and Yellow cartridges), so values do not need to add up to 100%.
           </p>
 
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="rounded-xl p-5" style={{ background: "hsl(133, 48%, 96%)" }}>
-              <p className="text-xs uppercase tracking-wider font-bold mb-1" style={{ color: "hsl(133, 48%, 30%)" }}>Total Page Coverage</p>
-              <p className="text-3xl font-bold" style={{ color: "hsl(133, 48%, 25%)" }}>{cov.totalCoverage.toFixed(2)}%</p>
-            </div>
-            <div className="rounded-xl p-5 bg-gray-50 border border-gray-100">
-              <p className="text-xs uppercase tracking-wider font-bold text-gray-500 mb-1">Blank Area</p>
-              <p className="text-3xl font-bold text-gray-700">{cov.blankArea.toFixed(2)}%</p>
-            </div>
+          <div className={`grid grid-cols-1 gap-3 mb-2 ${
+            keys.length === 1 ? "" :
+            keys.length === 2 ? "md:grid-cols-2" :
+            keys.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4"
+          }`}>
+            {keys.map((k) => (
+              <CoverageCard
+                key={k}
+                label={CHANNEL_META[k].label}
+                value={ch[k] ?? 0}
+                dotColor={CHANNEL_META[k].cssDot}
+                barClass={CHANNEL_META[k].cssBar}
+              />
+            ))}
           </div>
-
-          {/* Stacked bar */}
-          <div className="mb-5">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Color Distribution (page area)</p>
-            <div className="w-full h-5 rounded-full overflow-hidden flex bg-gray-100">
-              {visibleBuckets.map(([k, v]) => (
-                <div key={k} title={`${BUCKET_META[k].label}: ${v.toFixed(2)}%`} style={{ width: `${v}%`, background: BUCKET_META[k].cssDot }} />
-              ))}
-              {cov.blankArea > 0 && (
-                <div style={{ width: `${cov.blankArea}%`, background: "#f3f4f6" }} title={`Blank: ${cov.blankArea.toFixed(2)}%`} />
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {visibleBuckets.length > 0 ? (
-              visibleBuckets.map(([k, v]) => (
-                <CoverageBar
-                  key={k}
-                  label={BUCKET_META[k].label}
-                  value={v}
-                  dotColor={BUCKET_META[k].cssDot}
-                  barClass={BUCKET_META[k].cssBar}
-                  max={Math.max(cov.totalCoverage, 1)}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No printed content detected on the page.</p>
-            )}
-          </div>
-
-          {cov.inkLoad && colorMode === "color" && (
-            <details className="mt-6 text-sm">
-              <summary className="cursor-pointer font-semibold text-gray-600 hover:text-gray-900">
-                Advanced: CMYK ink load (additive — can exceed 100%)
-              </summary>
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                <div className="p-2 bg-cyan-50 rounded">Cyan: <b>{cov.inkLoad.cyan.toFixed(2)}%</b></div>
-                <div className="p-2 bg-pink-50 rounded">Magenta: <b>{cov.inkLoad.magenta.toFixed(2)}%</b></div>
-                <div className="p-2 bg-yellow-50 rounded">Yellow: <b>{cov.inkLoad.yellow.toFixed(2)}%</b></div>
-                <div className="p-2 bg-gray-100 rounded">Black: <b>{cov.inkLoad.black.toFixed(2)}%</b></div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                These are per-channel ink load values from Ghostscript. They sum independently and are intended for technical reference only.
-              </p>
-            </details>
-          )}
         </div>
 
         {/* Per-page table */}
@@ -419,32 +379,22 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
               <thead>
                 <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase">
                   <th className="text-left py-3 px-2 font-semibold">Page</th>
-                  <th className="text-right py-3 px-2 font-semibold">Coverage</th>
-                  <th className="text-right py-3 px-2 font-semibold">Blank</th>
-                  {colorMode === "color"
-                    ? ALL_KEYS.map((k) => (
-                        <th key={k} className="text-right py-3 px-2 font-semibold" style={{ color: BUCKET_META[k].cssDot }}>
-                          {BUCKET_META[k].label}
-                        </th>
-                      ))
-                    : <th className="text-right py-3 px-2 font-semibold text-gray-700">Black</th>
-                  }
+                  {keys.map((k) => (
+                    <th key={k} className="text-right py-3 px-2 font-semibold" style={{ color: CHANNEL_META[k].cssDot }}>
+                      {CHANNEL_META[k].label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {displayPages.map((p) => (
                   <tr key={p.page} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="py-2.5 px-2 font-semibold text-gray-800">Page {p.page}</td>
-                    <td className="py-2.5 px-2 text-right font-bold text-gray-900">{p.totalCoverage.toFixed(2)}%</td>
-                    <td className="py-2.5 px-2 text-right text-gray-500">{p.blankArea.toFixed(2)}%</td>
-                    {colorMode === "color"
-                      ? ALL_KEYS.map((k) => (
-                          <td key={k} className="py-2.5 px-2 text-right text-gray-700">
-                            {p.colors[k] > 0.005 ? `${p.colors[k].toFixed(2)}%` : "—"}
-                          </td>
-                        ))
-                      : <td className="py-2.5 px-2 text-right text-gray-700">{p.colors.black.toFixed(2)}%</td>
-                    }
+                    {keys.map((k) => (
+                      <td key={k} className="py-2.5 px-2 text-right text-gray-700">
+                        {(p.channels[k] ?? 0) > 0.005 ? `${(p.channels[k] ?? 0).toFixed(2)}%` : "—"}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -473,39 +423,24 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
           </div>
           <p className="text-sm text-gray-400 mb-6">
             {colorMode === "bw"
-              ? "Black & white cost is calculated from the black coverage % of the page."
-              : "Color cost is split between black coverage and the remaining color page-area coverage."}
+              ? "Black & white cost is based on the black cartridge coverage."
+              : printerType === "cmyk"
+                ? "Each CMYK cartridge is costed by its own coverage."
+                : "Color cost combines the tri-color cartridge usage and the black cartridge."}
             {" "}Cartridge yield is rated at the standard reference coverage (default 5%).
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-100 rounded-xl">
-              <p className="font-bold mb-3 text-gray-800 text-sm">Black Cartridge</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">Yield (pages)</Label>
-                  <Input value={blackYield} onChange={(e) => setBlackYield(e.target.value)} type="number" min="1" className="bg-white h-9 text-sm" />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500 mb-1 block">Price (USD)</Label>
-                  <Input value={blackPrice} onChange={(e) => setBlackPrice(e.target.value)} type="number" min="0" step="0.01" className="bg-white h-9 text-sm" />
-                </div>
-              </div>
-            </div>
-            {colorMode === "color" && (
-              <div className="p-4 bg-green-50 rounded-xl">
-                <p className="font-bold mb-3 text-green-800 text-sm">Color Cartridge</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-gray-500 mb-1 block">Yield (pages)</Label>
-                    <Input value={colorYield} onChange={(e) => setColorYield(e.target.value)} type="number" min="1" className="bg-white h-9 text-sm" />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-500 mb-1 block">Price (USD)</Label>
-                    <Input value={colorPrice} onChange={(e) => setColorPrice(e.target.value)} type="number" min="0" step="0.01" className="bg-white h-9 text-sm" />
-                  </div>
-                </div>
-              </div>
+            <CartridgeInputs label="Black Cartridge" yieldVal={blackYield} setYieldVal={setBlackYield} priceVal={blackPrice} setPriceVal={setBlackPrice} accent="bg-gray-100" />
+            {colorMode === "color" && printerType === "color-black" && (
+              <CartridgeInputs label="Color Cartridge" yieldVal={colorYield} setYieldVal={setColorYield} priceVal={colorPrice} setPriceVal={setColorPrice} accent="bg-indigo-50" />
+            )}
+            {colorMode === "color" && printerType === "cmyk" && (
+              <>
+                <CartridgeInputs label="Cyan Cartridge"    yieldVal={cyanYield}    setYieldVal={setCyanYield}    priceVal={cyanPrice}    setPriceVal={setCyanPrice}    accent="bg-cyan-50" />
+                <CartridgeInputs label="Magenta Cartridge" yieldVal={magentaYield} setYieldVal={setMagentaYield} priceVal={magentaPrice} setPriceVal={setMagentaPrice} accent="bg-pink-50" />
+                <CartridgeInputs label="Yellow Cartridge"  yieldVal={yellowYield}  setYieldVal={setYellowYield}  priceVal={yellowPrice}  setPriceVal={setYellowPrice}  accent="bg-yellow-50" />
+              </>
             )}
           </div>
 
@@ -557,22 +492,18 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
                   </div>
                 ))}
               </div>
-              {(costResult.breakdown.black !== undefined || costResult.breakdown.color !== undefined) && (
+              {Object.keys(costResult.breakdown).length > 0 && (
                 <div className="px-5 py-4 bg-white border-t border-green-100">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Cartridge Breakdown</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {costResult.breakdown.black !== undefined && (
-                      <div className="text-center p-3 bg-gray-100 rounded-xl">
-                        <p className="text-xs text-gray-600 font-semibold mb-1">Black</p>
-                        <p className="text-sm font-bold text-gray-900">${costResult.breakdown.black.toFixed(4)}/page</p>
-                      </div>
-                    )}
-                    {costResult.breakdown.color !== undefined && (
-                      <div className="text-center p-3 bg-green-50 rounded-xl">
-                        <p className="text-xs text-green-600 font-semibold mb-1">Color</p>
-                        <p className="text-sm font-bold text-green-900">${costResult.breakdown.color.toFixed(4)}/page</p>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {(["black", "cyan", "magenta", "yellow", "color"] as ChannelKey[])
+                      .filter((k) => (costResult.breakdown as any)[k] !== undefined)
+                      .map((k) => (
+                        <div key={k} className={`text-center p-3 ${CHANNEL_META[k].cssBg} rounded-xl`}>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">{CHANNEL_META[k].label}</p>
+                          <p className="text-sm font-bold text-gray-900">${((costResult.breakdown as any)[k] as number).toFixed(4)}/page</p>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
@@ -586,5 +517,28 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
         </div>
       </div>
     </section>
+  );
+}
+
+function CartridgeInputs({ label, yieldVal, setYieldVal, priceVal, setPriceVal, accent }: {
+  label: string;
+  yieldVal: string; setYieldVal: (v: string) => void;
+  priceVal: string; setPriceVal: (v: string) => void;
+  accent: string;
+}) {
+  return (
+    <div className={`p-4 ${accent} rounded-xl`}>
+      <p className="font-bold mb-3 text-gray-800 text-sm">{label}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs text-gray-500 mb-1 block">Yield (pages)</Label>
+          <Input value={yieldVal} onChange={(e) => setYieldVal(e.target.value)} type="number" min="1" className="bg-white h-9 text-sm" />
+        </div>
+        <div>
+          <Label className="text-xs text-gray-500 mb-1 block">Price (USD)</Label>
+          <Input value={priceVal} onChange={(e) => setPriceVal(e.target.value)} type="number" min="0" step="0.01" className="bg-white h-9 text-sm" />
+        </div>
+      </div>
+    </div>
   );
 }

@@ -15,7 +15,7 @@ export const analyses = pgTable("analyses", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").references(() => documents.id).notNull(),
   status: text("status").notNull().default("pending"),
-  mode: text("mode").notNull().default("cmyk"),
+  mode: text("mode").notNull().default("color"),
   totalPages: integer("total_pages"),
   overallCoverage: jsonb("overall_coverage").$type<OverallCoverage>(),
   pageBreakdown: jsonb("page_breakdown").$type<PageAnalysis[]>(),
@@ -41,39 +41,39 @@ export type Document = typeof documents.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
 export type Analysis = typeof analyses.$inferSelect;
 
-// ── Page-area coverage model (mutually exclusive buckets) ─────────────────────
+// ── Printer types & print modes ───────────────────────────────────────────────
 
-export type ColorBucketKey = "black" | "cyan" | "magenta" | "yellow";
+/** Two cartridge configurations the user can analyze for. */
+export type PrinterType =
+  | "cmyk"          // 4 separate cartridges: Cyan, Magenta, Yellow, Black
+  | "color-black";  // 2 cartridges: combined Color (CMY) + Black
 
-export type ColorBuckets = Record<ColorBucketKey, number>;
+/** What the printout will actually look like. */
+export type ColorMode = "color" | "bw";
 
-export const EMPTY_BUCKETS: ColorBuckets = {
-  black: 0, cyan: 0, magenta: 0, yellow: 0,
-};
+// ── Per-channel ink coverage (each 0–100 %, channels are independent) ────────
 
-export const COLOR_BUCKET_KEYS: ColorBucketKey[] = ["black", "cyan", "magenta", "yellow"];
-
-/** Optional internal CMYK ink-load (additive, can exceed 100%). Not for primary display. */
-export interface CMYKInkLoad {
-  cyan: number;
-  magenta: number;
-  yellow: number;
-  black: number;
+/**
+ * Each channel value is the percentage of "full ink" that channel would lay
+ * down across the whole page area. Channels are INDEPENDENT measurements
+ * (they are not mutually exclusive — a pixel that uses cyan + yellow
+ * contributes to both). Each individual channel is in 0–100.
+ */
+export interface ChannelCoverage {
+  black: number;             // K cartridge load (always present)
+  cyan?: number;             // CMYK printers only
+  magenta?: number;          // CMYK printers only
+  yellow?: number;           // CMYK printers only
+  color?: number;            // color-black printers only — combined CMY load
 }
 
 export interface PageAnalysis {
   page: number;
-  totalCoverage: number; // % of page area covered (0–100)
-  blankArea: number;     // 100 - totalCoverage
-  colors: ColorBuckets;  // each is % of page area; sum == totalCoverage
-  inkLoad?: CMYKInkLoad; // advanced — additive CMYK channel load
+  channels: ChannelCoverage;
 }
 
 export interface OverallCoverage {
-  totalCoverage: number;
-  blankArea: number;
-  colors: ColorBuckets;
-  inkLoad?: CMYKInkLoad;
+  channels: ChannelCoverage;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -87,19 +87,18 @@ export interface PageSize {
   heightMM: number;
 }
 
-export type ColorMode = "color" | "bw";
-
 export interface AnalysisSettings {
+  printerType: PrinterType;
+  colorMode: ColorMode;
   pageSize: PageSize;
   resolutionDPI: 72 | 150 | 300 | 600;
-  colorMode: ColorMode;
 }
 
 export const PAGE_SIZE_PRESETS: Record<Exclude<PageSizePreset, "Custom" | "Auto">, { widthMM: number; heightMM: number }> = {
-  A4:      { widthMM: 210, heightMM: 297 },
-  Letter:  { widthMM: 215.9, heightMM: 279.4 },
-  Legal:   { widthMM: 215.9, heightMM: 355.6 },
-  Tabloid: { widthMM: 279.4, heightMM: 431.8 },
+  A4:      { widthMM: 210,    heightMM: 297 },
+  Letter:  { widthMM: 215.9,  heightMM: 279.4 },
+  Legal:   { widthMM: 215.9,  heightMM: 355.6 },
+  Tabloid: { widthMM: 279.4,  heightMM: 431.8 },
 };
 
 // ── Analysis result envelope ──────────────────────────────────────────────────
@@ -114,32 +113,38 @@ export interface AnalysisResult {
 // ── Cost estimation ──────────────────────────────────────────────────────────
 
 export interface CostEstimate {
-  mode: ColorMode; // "color" or "bw"
-  // Page-area coverage figures
-  totalCoverage: number;          // % page covered
-  blackCoverage: number;          // % page covered by black bucket (also full coverage in bw mode)
-  colorCoverage: number;          // totalCoverage - blackCoverage (color non-black)
-  copies: number;                 // number of copies
+  printerType: PrinterType;
+  mode: ColorMode;
+  copies: number;
   wastePercent: number;
-  // Cartridge inputs
+  referenceCoverage?: number; // default 5
+  // Per-channel coverage % (same shape as ChannelCoverage)
+  channels: ChannelCoverage;
+  // Cartridge inputs — use the ones relevant to printerType/mode
   blackYield?: number;
   blackPrice?: number;
-  colorYield?: number;
-  colorPrice?: number;
-  // Standard reference coverage (default 5)
-  referenceCoverage?: number;
+  // CMYK printer
+  cyanYield?: number;   cyanPrice?: number;
+  magentaYield?: number; magentaPrice?: number;
+  yellowYield?: number;  yellowPrice?: number;
+  // Color-black printer
+  colorYield?: number;   colorPrice?: number;
 }
 
 export interface CostResult {
+  printerType: PrinterType;
   mode: ColorMode;
   baseCostPerPage: number;
   adjustedCostPerPage: number;
   rangeMin: number;
   rangeMax: number;
-  totalCost: number;             // for all copies (adjusted)
+  totalCost: number; // for all copies (adjusted)
   copies: number;
   breakdown: {
     black?: number;
+    cyan?: number;
+    magenta?: number;
+    yellow?: number;
     color?: number;
   };
 }

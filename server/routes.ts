@@ -75,7 +75,14 @@ function resolveSettings(input: any): AnalysisSettings {
   const allowed = [72, 150, 300, 600];
   const resolutionDPI = (allowed.includes(dpiRaw) ? dpiRaw : 150) as 72 | 150 | 300 | 600;
   const colorMode = input?.colorMode === "bw" ? "bw" : "color";
-  return { pageSize: resolvePageSize(input?.pageSize), resolutionDPI, colorMode };
+  const printerType = input?.printerType === "color-black" ? "color-black" : "cmyk";
+  return { printerType, colorMode, pageSize: resolvePageSize(input?.pageSize), resolutionDPI };
+}
+
+function cartridgeCost(coverage: number | undefined, yieldPages?: number, price?: number, ref = 5): number {
+  if (!yieldPages || !price || !coverage || coverage <= 0) return 0;
+  const effectiveYield = yieldPages * (ref / Math.max(coverage, 0.1));
+  return price / effectiveYield;
 }
 
 function calculateCost(estimate: CostEstimate): CostResult {
@@ -84,20 +91,24 @@ function calculateCost(estimate: CostEstimate): CostResult {
   const breakdown: CostResult["breakdown"] = {};
   let totalBase = 0;
 
-  // Black cartridge cost: based on black coverage % of page area
-  if (estimate.blackYield && estimate.blackPrice && estimate.blackCoverage > 0) {
-    const effectiveYield = estimate.blackYield * (reference / Math.max(estimate.blackCoverage, 0.1));
-    const cost = estimate.blackPrice / effectiveYield;
-    breakdown.black = round4(cost);
-    totalBase += cost;
-  }
+  const ch = estimate.channels || {};
 
-  // Color cartridge cost: based on color (non-black) coverage % of page area
-  if (estimate.mode === "color" && estimate.colorYield && estimate.colorPrice && estimate.colorCoverage > 0) {
-    const effectiveYield = estimate.colorYield * (reference / Math.max(estimate.colorCoverage, 0.1));
-    const cost = estimate.colorPrice / effectiveYield;
-    breakdown.color = round4(cost);
-    totalBase += cost;
+  // Black cartridge is always used (in either mode, either printer type).
+  const blackCost = cartridgeCost(ch.black, estimate.blackYield, estimate.blackPrice, reference);
+  if (blackCost > 0) { breakdown.black = round4(blackCost); totalBase += blackCost; }
+
+  if (estimate.mode === "color") {
+    if (estimate.printerType === "cmyk") {
+      const cCost = cartridgeCost(ch.cyan,    estimate.cyanYield,    estimate.cyanPrice,    reference);
+      const mCost = cartridgeCost(ch.magenta, estimate.magentaYield, estimate.magentaPrice, reference);
+      const yCost = cartridgeCost(ch.yellow,  estimate.yellowYield,  estimate.yellowPrice,  reference);
+      if (cCost > 0) { breakdown.cyan = round4(cCost); totalBase += cCost; }
+      if (mCost > 0) { breakdown.magenta = round4(mCost); totalBase += mCost; }
+      if (yCost > 0) { breakdown.yellow = round4(yCost); totalBase += yCost; }
+    } else {
+      const colorCost = cartridgeCost(ch.color, estimate.colorYield, estimate.colorPrice, reference);
+      if (colorCost > 0) { breakdown.color = round4(colorCost); totalBase += colorCost; }
+    }
   }
 
   const adjusted = totalBase * wasteFactor;
@@ -105,6 +116,7 @@ function calculateCost(estimate: CostEstimate): CostResult {
   const copies = Math.max(1, Math.floor(estimate.copies || 1));
 
   return {
+    printerType: estimate.printerType,
     mode: estimate.mode,
     baseCostPerPage: round4(totalBase),
     adjustedCostPerPage: round4(adjusted),
@@ -199,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             settings: results.settings,
             completedAt: new Date(),
           });
-          console.log(`Analysis complete for ${document.originalName}: total ${results.overallCoverage.totalCoverage}%`);
+          console.log(`Analysis complete for ${document.originalName}: ${JSON.stringify(results.overallCoverage.channels)}`);
         } catch (error) {
           console.error("Analysis error:", error);
           await storage.updateAnalysis(analysis.id, {
@@ -230,8 +242,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/estimate", async (req, res) => {
     try {
       const estimate: CostEstimate = req.body;
-      if (!estimate || typeof estimate.totalCoverage !== "number") {
-        return res.status(400).json({ message: "Missing required coverage fields" });
+      if (!estimate || !estimate.channels || typeof estimate.channels.black !== "number") {
+        return res.status(400).json({ message: "Missing required channel coverage" });
       }
       const result = calculateCost(estimate);
       res.json(result);
