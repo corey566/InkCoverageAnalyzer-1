@@ -43,23 +43,15 @@ export type Analysis = typeof analyses.$inferSelect;
 
 // ── Page-area coverage model (mutually exclusive buckets) ─────────────────────
 
-export type ColorBucketKey =
-  | "black"
-  | "cyan"
-  | "magenta"
-  | "yellow"
-  | "red"
-  | "green"
-  | "blue"
-  | "gray"
-  | "other";
+export type ColorBucketKey = "black" | "cyan" | "magenta" | "yellow";
 
 export type ColorBuckets = Record<ColorBucketKey, number>;
 
 export const EMPTY_BUCKETS: ColorBuckets = {
   black: 0, cyan: 0, magenta: 0, yellow: 0,
-  red: 0, green: 0, blue: 0, gray: 0, other: 0,
 };
+
+export const COLOR_BUCKET_KEYS: ColorBucketKey[] = ["black", "cyan", "magenta", "yellow"];
 
 /** Optional internal CMYK ink-load (additive, can exceed 100%). Not for primary display. */
 export interface CMYKInkLoad {

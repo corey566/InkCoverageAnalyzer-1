@@ -1,0 +1,226 @@
+Update the app so that it only analyzes and displays these four toner/ink categories:
+
+* Black
+* Cyan
+* Magenta
+* Yellow
+
+Remove all other display color categories from the UI and from the analysis results, including:
+
+* Blue
+* Red
+* Green
+* Gray
+* Other / Mixed
+* any extra color buckets outside CMYK
+
+## Main requirement
+
+The app must estimate coverage using only **Black, Cyan, Magenta, and Yellow**.
+
+The displayed percentages must be based on **page area**, and the total of the displayed categories must **not exceed 100%**.
+
+## Correct calculation model
+
+Treat the full page as 100% total area.
+
+For each page:
+
+1. Detect all printed, non-white regions.
+2. Assign each printed pixel or small area to **one dominant CMYK bucket only**:
+
+   * Black
+   * Cyan
+   * Magenta
+   * Yellow
+3. Make the classification **mutually exclusive** so that one pixel is counted only once.
+4. Do not count the same area in multiple channels.
+5. The sum of:
+
+   * Black %
+   * Cyan %
+   * Magenta %
+   * Yellow %
+
+   must equal total page coverage, and must never exceed 100%.
+
+## Important correction
+
+Do **not** use additive CMYK channel totals for the main displayed results.
+
+Wrong behavior:
+
+* Cyan 62%
+* Magenta 81%
+* Yellow 84%
+* Black 60%
+* Total 288%
+
+That is not acceptable for the user-facing display.
+
+Correct behavior:
+
+* Each displayed category must represent a unique portion of the page area.
+* Adding Black + Cyan + Magenta + Yellow must stay at or below 100%.
+* Blank area must be the remainder of the page.
+
+## Results that should be shown
+
+For each page and for the document average, show only:
+
+* Page Coverage
+* Blank Area
+* Black %
+* Cyan %
+* Magenta %
+* Yellow %
+
+Formula:
+
+* `Page Coverage = Black + Cyan + Magenta + Yellow`
+* `Blank Area = 100 - Page Coverage`
+
+## UI changes
+
+Remove these columns, legends, bars, and labels everywhere in the interface:
+
+* Blue
+* Red
+* Green
+* Gray
+* Other / Mixed
+
+Keep only:
+
+* Black
+* Cyan
+* Magenta
+* Yellow
+
+Update the summary cards, charts, stacked bars, tables, exports, and per-page breakdown so they only show CMYK.
+
+## Page setup before analysis
+
+Before calculation, the user must be able to choose:
+
+* page size
+* resolution
+* analysis mode
+
+### Page size options
+
+* A4
+* Letter
+* Legal
+* Tabloid
+* Custom width and height
+
+Rules:
+
+* auto-detect PDF page size when available
+* prefill detected size
+* still allow manual override
+* for images, require page size selection or fit-to-page before analysis
+
+### Resolution options
+
+* 72 DPI
+* 150 DPI
+* 300 DPI
+* 600 DPI
+
+Use the selected page size and resolution in the analysis.
+
+## Analysis modes
+
+Support:
+
+* Black and White
+* Color
+
+### Black and White mode
+
+* show only Black %
+* Blank Area
+* Page Coverage
+
+### Color mode
+
+* still only show Black, Cyan, Magenta, Yellow
+* no extra color families should appear
+
+## Multi-page documents
+
+For PDFs and other multi-page files:
+
+* analyze each page individually
+* show per-page breakdown
+* show document averages
+* show page count analyzed
+
+## Per-page table format
+
+Use columns like:
+
+* Page
+* Coverage
+* Blank
+* Black
+* Cyan
+* Magenta
+* Yellow
+
+Do not include any other color columns.
+
+## Cost estimation
+
+Cost estimation must be based on the corrected CMYK-only page-area model.
+
+Inputs:
+
+* number of copies
+* cartridge or toner cost
+* cartridge yield
+* standard coverage reference
+* selected print mode
+
+### Black and White cost
+
+Use Black coverage only.
+
+### Color cost
+
+Use only:
+
+* Black %
+* Cyan %
+* Magenta %
+* Yellow %
+
+Do not use Blue, Red, Green, Gray, or Other in the cost model.
+
+## Terminology
+
+Use clear labels:
+
+* Page Coverage
+* Blank Area
+* CMYK Distribution
+* Per-Page Breakdown
+* Average Coverage
+
+Do not use misleading labels that imply coverage above 100%.
+
+## Final goal
+
+The app should behave like this:
+
+* user selects page size, resolution, and mode first
+* app analyzes the document against the full page area
+* app only reports Black, Cyan, Magenta, and Yellow
+* all displayed CMYK percentages are mutually exclusive page-area values
+* the total displayed coverage never exceeds 100%
+* blank area is shown separately
+* extra color categories are fully removed from the platform
+
+Do not redesign unrelated parts of the app. Only fix the analysis logic, page setup, labels, result display, and cost estimation so the app matches these requirements exactly.

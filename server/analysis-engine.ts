@@ -92,18 +92,8 @@ export class DocumentAnalysisEngine {
     try {
       await this.renderPage(filePath, mimeType, pageIndex, renderPath, settings, widthPx, heightPx);
       const { buckets } = await this.classifyImage(renderPath, settings.colorMode);
-      // Round each bucket and derive total/blank as residuals so displayed values
-      // are mutually exclusive AND always sum to exactly 100% within rounding.
-      const rounded = roundBuckets(buckets);
-      const totalCoverage = round2(
-        (Object.keys(rounded) as (keyof ColorBuckets)[]).reduce((s, k) => s + rounded[k], 0),
-      );
-      return {
-        page: pageIndex + 1,
-        totalCoverage,
-        blankArea: round2(100 - totalCoverage),
-        colors: rounded,
-      };
+      const { colors, totalCoverage, blankArea } = reconcileBuckets(buckets);
+      return { page: pageIndex + 1, totalCoverage, blankArea, colors };
     } finally {
       try { await fs.unlink(renderPath); } catch {}
     }
@@ -175,9 +165,7 @@ export class DocumentAnalysisEngine {
 
     const counts: Record<keyof ColorBuckets, number> = {
       black: 0, cyan: 0, magenta: 0, yellow: 0,
-      red: 0, green: 0, blue: 0, gray: 0, other: 0,
     };
-    let covered = 0;
 
     const len = Math.min(buf.length, totalPixels * 3);
     for (let i = 0; i < len; i += 3) {
@@ -185,47 +173,35 @@ export class DocumentAnalysisEngine {
       const max = r > g ? (r > b ? r : b) : (g > b ? g : b);
       const min = r < g ? (r < b ? r : b) : (g < b ? g : b);
 
-      // Blank/paper detection: very bright AND nearly grey
+      // Blank/paper detection: very bright AND nearly grey -> uncovered page
       if (min >= 245 && max - min <= 8) {
         continue;
       }
-      covered++;
 
       if (colorMode === "bw") {
         counts.black++;
         continue;
       }
 
-      const sat = max === 0 ? 0 : (max - min) / max;
-      const value = max / 255;
-
-      if (value < 0.18) {
-        counts.black++;
-        continue;
-      }
-      if (sat < 0.18) {
-        if (value < 0.40) counts.black++;
-        else counts.gray++;
-        continue;
+      // RGB -> CMYK, then assign pixel to the dominant CMYK channel.
+      // K = 1 - max(R,G,B); C = (1-R-K)/(1-K); M = (1-G-K)/(1-K); Y = (1-B-K)/(1-K).
+      const k = 1 - max / 255;
+      let c = 0, m = 0, y = 0;
+      const denom = 1 - k;
+      if (denom > 0.001) {
+        c = (1 - r / 255 - k) / denom;
+        m = (1 - g / 255 - k) / denom;
+        y = (1 - b / 255 - k) / denom;
       }
 
-      // Hue (degrees 0-360)
-      const d = max - min;
-      let h: number;
-      if (max === r) h = 60 * (((g - b) / d) % 6);
-      else if (max === g) h = 60 * (((b - r) / d) + 2);
-      else h = 60 * (((r - g) / d) + 4);
-      if (h < 0) h += 360;
-
-      if (h < 18 || h >= 340) counts.red++;
-      else if (h < 40) counts.other++;          // orange-ish
-      else if (h < 70) counts.yellow++;
-      else if (h < 160) counts.green++;
-      else if (h < 200) counts.cyan++;
-      else if (h < 260) counts.blue++;
-      else if (h < 290) counts.magenta++;
-      else if (h < 340) counts.magenta++;
-      else counts.other++;
+      // Winner-takes-all: pick channel with highest value.
+      // Ties favor K (so dark/neutral pixels become Black, not a color).
+      let bucket: keyof ColorBuckets = "black";
+      let best = k;
+      if (c > best) { best = c; bucket = "cyan"; }
+      if (m > best) { best = m; bucket = "magenta"; }
+      if (y > best) { best = y; bucket = "yellow"; }
+      counts[bucket]++;
     }
 
     const buckets: ColorBuckets = { ...EMPTY_BUCKETS };
@@ -280,16 +256,9 @@ export class DocumentAnalysisEngine {
       }
     }
     const n = pages.length;
-    const colors = roundBuckets(divideBuckets(sumColors, n));
-    // Recompute total from rounded color buckets so total == sum(colors) exactly.
-    const totalCoverage = round2(
-      (Object.keys(colors) as (keyof ColorBuckets)[]).reduce((s, k) => s + colors[k], 0),
-    );
-    const result: OverallCoverage = {
-      totalCoverage,
-      blankArea: round2(100 - totalCoverage),
-      colors,
-    };
+    const avgRaw = divideBuckets(sumColors, n);
+    const { colors, totalCoverage, blankArea } = reconcileBuckets(avgRaw);
+    const result: OverallCoverage = { totalCoverage, blankArea, colors };
     if (inkPages > 0) {
       result.inkLoad = {
         cyan: round2(sumInk.cyan / inkPages),
@@ -314,4 +283,39 @@ function roundBuckets(b: ColorBuckets): ColorBuckets {
   const out: ColorBuckets = { ...EMPTY_BUCKETS };
   (Object.keys(b) as (keyof ColorBuckets)[]).forEach((k) => { out[k] = round2(b[k]); });
   return out;
+}
+
+/**
+ * Round bucket percentages to 2dp and absorb any rounding drift into the
+ * largest bucket so the displayed values always satisfy:
+ *   sum(colors) === totalCoverage   AND   totalCoverage + blankArea === 100
+ *   totalCoverage <= 100   AND   blankArea >= 0   AND   every bucket >= 0.
+ */
+function reconcileBuckets(raw: ColorBuckets): { colors: ColorBuckets; totalCoverage: number; blankArea: number } {
+  const keys = Object.keys(raw) as (keyof ColorBuckets)[];
+  const rawTotal = keys.reduce((s, k) => s + raw[k], 0);
+  // Cap raw total at 100 to absorb floating-point drift before rounding.
+  const totalCoverage = round2(Math.min(100, Math.max(0, rawTotal)));
+  const colors = roundBuckets(raw);
+  let sumRounded = round2(keys.reduce((s, k) => s + colors[k], 0));
+  let drift = round2(totalCoverage - sumRounded);
+  if (drift !== 0) {
+    // Apply drift to the bucket with the largest value (or to "black" if all zero).
+    let target: keyof ColorBuckets = "black";
+    let max = -1;
+    keys.forEach((k) => { if (colors[k] > max) { max = colors[k]; target = k; } });
+    colors[target] = Math.max(0, round2(colors[target] + drift));
+    // Final tidy: ensure no bucket is negative and the sum still matches.
+    sumRounded = round2(keys.reduce((s, k) => s + colors[k], 0));
+    if (sumRounded !== totalCoverage) {
+      // If a clamp pushed a bucket to 0, re-absorb the leftover drift into another.
+      const leftover = round2(totalCoverage - sumRounded);
+      if (leftover !== 0) {
+        max = -1; target = "black";
+        keys.forEach((k) => { if (colors[k] > max) { max = colors[k]; target = k; } });
+        colors[target] = Math.max(0, round2(colors[target] + leftover));
+      }
+    }
+  }
+  return { colors, totalCoverage, blankArea: round2(100 - totalCoverage) };
 }
