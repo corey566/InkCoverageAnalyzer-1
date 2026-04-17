@@ -1,20 +1,28 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Upload, FileText, Play, Layers, Printer, ShieldAlert } from "lucide-react";
+import { X, Upload, FileText, Play, Printer, Layers, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Document } from "@shared/schema";
+import type {
+  Document,
+  AnalysisSettings,
+  PageSizePreset,
+  ColorMode,
+} from "@shared/schema";
+import { PAGE_SIZE_PRESETS } from "@shared/schema";
 import { DocumentPreview } from "@/components/document-preview";
 import { Link } from "wouter";
 
 interface FileUploadProps {
-  onAnalysisStart: (documentId: number, mode: "cmyk" | "color_black") => void;
+  onAnalysisStart: (analysisId: number, settings: AnalysisSettings) => void;
 }
 
-type AnalysisMode = "cmyk" | "color_black";
+const DPI_OPTIONS: Array<72 | 150 | 300 | 600> = [72, 150, 300, 600];
+const PAGE_PRESETS: PageSizePreset[] = ["Auto", "A4", "Letter", "Legal", "Tabloid", "Custom"];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -24,122 +32,225 @@ function formatFileSize(bytes: number): string {
 
 export function FileUpload({ onAnalysisStart }: FileUploadProps) {
   const [uploadedFile, setUploadedFile] = useState<Document | null>(null);
-  const [mode, setMode] = useState<AnalysisMode>("cmyk");
+  const [colorMode, setColorMode] = useState<ColorMode>("color");
+  const [resolutionDPI, setResolutionDPI] = useState<72 | 150 | 300 | 600>(150);
+  const [pagePreset, setPagePreset] = useState<PageSizePreset>("Auto");
+  const [widthMM, setWidthMM] = useState<string>("210");
+  const [heightMM, setHeightMM] = useState<string>("297");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const { toast } = useToast();
+
+  // Sync preset → dimensions
+  useEffect(() => {
+    if (pagePreset === "Custom" || pagePreset === "Auto") return;
+    const p = PAGE_SIZE_PRESETS[pagePreset];
+    if (p) {
+      setWidthMM(String(p.widthMM));
+      setHeightMM(String(p.heightMM));
+    }
+  }, [pagePreset]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
-      formData.append('file', file);
-      const response = await apiRequest('POST', '/api/documents/upload', formData);
+      formData.append("file", file);
+      const response = await apiRequest("POST", "/api/documents/upload", formData);
       return response.json() as Promise<Document>;
     },
-    onSuccess: (document: Document) => {
+    onSuccess: async (document: Document) => {
       setUploadedFile(document);
       toast({ title: "File uploaded", description: `${document.originalName} is ready for analysis.` });
+      // Auto-detect PDF page dimensions for prefill
+      try {
+        const r = await apiRequest("GET", `/api/documents/${document.id}/page-info`);
+        const info = await r.json();
+        if (info.isPDF && info.widthMM && info.heightMM) {
+          setPagePreset("Auto");
+          setWidthMM(String(info.widthMM));
+          setHeightMM(String(info.heightMM));
+        }
+      } catch {}
     },
     onError: (error: Error) => {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
-    }
+    },
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ documentId, mode }: { documentId: number; mode: AnalysisMode }) => {
-      const response = await apiRequest('POST', `/api/documents/${documentId}/analyze`, { mode });
+    mutationFn: async (settings: AnalysisSettings) => {
+      if (!uploadedFile) throw new Error("No file");
+      const response = await apiRequest("POST", `/api/documents/${uploadedFile.id}/analyze`, settings);
       return response.json();
     },
-    onSuccess: (analysis) => {
-      onAnalysisStart(analysis.id, mode);
+    onSuccess: (analysis, settings) => {
+      onAnalysisStart(analysis.id, settings);
     },
     onError: () => {
       toast({ title: "Analysis failed to start", description: "Please try again.", variant: "destructive" });
-    }
+    },
   });
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (!termsAccepted) {
-      toast({ title: "Agreement required", description: "Please accept the Terms of Service and Privacy Policy before uploading.", variant: "destructive" });
-      return;
-    }
-    if (acceptedFiles[0]) uploadMutation.mutate(acceptedFiles[0]);
-  }, [uploadMutation, termsAccepted]);
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      if (!termsAccepted) {
+        toast({
+          title: "Agreement required",
+          description: "Please accept the Terms of Service and Privacy Policy before uploading.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (acceptedFiles[0]) uploadMutation.mutate(acceptedFiles[0]);
+    },
+    [uploadMutation, termsAccepted, toast],
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/pdf': ['.pdf'],
-      'application/postscript': ['.eps'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/png': ['.png'],
-      'image/tiff': ['.tiff', '.tif'],
+      "application/pdf": [".pdf"],
+      "application/postscript": [".eps"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "image/tiff": [".tiff", ".tif"],
     },
     maxSize: 50 * 1024 * 1024,
     multiple: false,
   });
+
+  const buildSettings = (): AnalysisSettings => {
+    const w = parseFloat(widthMM);
+    const h = parseFloat(heightMM);
+    return {
+      pageSize: {
+        preset: pagePreset,
+        widthMM: isFinite(w) ? w : 210,
+        heightMM: isFinite(h) ? h : 297,
+      },
+      resolutionDPI,
+      colorMode,
+    };
+  };
 
   const handleStartAnalysis = () => {
     if (!uploadedFile) {
       toast({ title: "No file selected", description: "Please upload a file first.", variant: "destructive" });
       return;
     }
-    analyzeMutation.mutate({ documentId: uploadedFile.id, mode });
+    const w = parseFloat(widthMM);
+    const h = parseFloat(heightMM);
+    if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) {
+      toast({ title: "Invalid page size", description: "Please enter valid width and height in mm.", variant: "destructive" });
+      return;
+    }
+    analyzeMutation.mutate(buildSettings());
   };
 
   return (
     <section id="estimator" className="py-20" style={{ background: "hsl(120, 8%, 97%)" }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section header */}
         <div className="text-center mb-12">
           <p className="section-label mb-3">Professional Tool</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-            Ink Coverage Estimator
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Page Coverage Estimator</h2>
           <p className="text-gray-500 text-base max-w-xl mx-auto">
-            Upload your document to get instant CMYK ink coverage and cost analysis powered by Ghostscript.
+            Upload a document, choose your page size and resolution, and get true page-area coverage you can trust for cost estimates.
           </p>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-8"
-          style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07), 0 16px 40px rgba(0,0,0,0.06)" }}>
-
-          {/* Mode Selection */}
+        <div
+          className="bg-white rounded-2xl border border-gray-100 p-8 space-y-8"
+          style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07), 0 16px 40px rgba(0,0,0,0.06)" }}
+        >
+          {/* Analysis Mode */}
           <div>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Analysis Mode</h3>
             <div className="grid grid-cols-2 gap-4">
               <button
-                onClick={() => setMode("cmyk")}
+                onClick={() => setColorMode("color")}
                 className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                  mode === "cmyk"
-                    ? "border-green-600 bg-green-50"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  colorMode === "color" ? "border-green-600 bg-green-50" : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <Layers className={`w-5 h-5 flex-shrink-0 ${mode === "cmyk" ? "text-green-700" : "text-gray-400"}`} />
+                <Layers className={`w-5 h-5 ${colorMode === "color" ? "text-green-700" : "text-gray-400"}`} />
                 <div>
-                  <div className={`font-semibold text-sm ${mode === "cmyk" ? "text-green-900" : "text-gray-700"}`}>CMYK Mode</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Separate Cyan, Magenta, Yellow, Black</div>
+                  <div className={`font-semibold text-sm ${colorMode === "color" ? "text-green-900" : "text-gray-700"}`}>Color</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Page-area distribution by color category</div>
                 </div>
               </button>
               <button
-                onClick={() => setMode("color_black")}
+                onClick={() => setColorMode("bw")}
                 className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                  mode === "color_black"
-                    ? "border-green-600 bg-green-50"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  colorMode === "bw" ? "border-green-600 bg-green-50" : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <Printer className={`w-5 h-5 flex-shrink-0 ${mode === "color_black" ? "text-green-700" : "text-gray-400"}`} />
+                <Printer className={`w-5 h-5 ${colorMode === "bw" ? "text-green-700" : "text-gray-400"}`} />
                 <div>
-                  <div className={`font-semibold text-sm ${mode === "color_black" ? "text-green-900" : "text-gray-700"}`}>Color + Black</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Combined color cartridge + black</div>
+                  <div className={`font-semibold text-sm ${colorMode === "bw" ? "text-green-900" : "text-gray-700"}`}>Black & White</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Black coverage as % of total page area</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Terms & Privacy Agreement */}
+          {/* Page Size */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Page Size</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Preset</Label>
+                <select
+                  value={pagePreset}
+                  onChange={(e) => setPagePreset(e.target.value as PageSizePreset)}
+                  className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm"
+                >
+                  {PAGE_PRESETS.map((p) => (
+                    <option key={p} value={p}>{p}{p === "Auto" ? " (detect from file)" : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Width (mm)</Label>
+                <Input
+                  type="number" min="10" step="0.1"
+                  value={widthMM}
+                  onChange={(e) => { setWidthMM(e.target.value); if (pagePreset !== "Custom" && pagePreset !== "Auto") setPagePreset("Custom"); }}
+                  className="h-10 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Height (mm)</Label>
+                <Input
+                  type="number" min="10" step="0.1"
+                  value={heightMM}
+                  onChange={(e) => { setHeightMM(e.target.value); if (pagePreset !== "Custom" && pagePreset !== "Auto") setPagePreset("Custom"); }}
+                  className="h-10 text-sm"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              All percentages are calibrated against this final page size. PDFs auto-detect; you can still override.
+            </p>
+          </div>
+
+          {/* Resolution */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Resolution</h3>
+            <div className="grid grid-cols-4 gap-3">
+              {DPI_OPTIONS.map((dpi) => (
+                <button
+                  key={dpi}
+                  onClick={() => setResolutionDPI(dpi)}
+                  className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    resolutionDPI === dpi ? "border-green-600 bg-green-50 text-green-800" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  {dpi} DPI
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Terms */}
           <div>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Agreement Required</h3>
             <div className={`rounded-xl border-2 p-4 transition-colors ${termsAccepted ? "border-green-300 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
@@ -161,14 +272,10 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
                   </p>
                   <p className="text-xs text-gray-600 mb-3 leading-relaxed">
                     By uploading a document you confirm that you have read and agree to our{" "}
-                    <Link href="/terms-of-service" className="font-medium hover:underline" style={{ color: "hsl(133, 48%, 36%)" }}>
-                      Terms of Service
-                    </Link>{" "}
+                    <Link href="/terms-of-service" className="font-medium hover:underline" style={{ color: "hsl(133, 48%, 36%)" }}>Terms of Service</Link>{" "}
                     and{" "}
-                    <Link href="/privacy-policy" className="font-medium hover:underline" style={{ color: "hsl(133, 48%, 36%)" }}>
-                      Privacy Policy
-                    </Link>
-                    . Your document will be processed for ink coverage analysis only and will not be retained.
+                    <Link href="/privacy-policy" className="font-medium hover:underline" style={{ color: "hsl(133, 48%, 36%)" }}>Privacy Policy</Link>.
+                    Your document is processed for coverage analysis only and is not retained.
                   </p>
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -186,7 +293,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
             </div>
           </div>
 
-          {/* File Upload Area */}
+          {/* Upload */}
           <div>
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Upload Document</h3>
             {!uploadedFile ? (
@@ -195,9 +302,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
                 className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
                   !termsAccepted
                     ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
-                    : isDragActive
-                      ? "cursor-pointer"
-                      : "border-gray-300 hover:border-green-500 hover:bg-green-50/50 cursor-pointer"
+                    : isDragActive ? "cursor-pointer" : "border-gray-300 hover:border-green-500 hover:bg-green-50/50 cursor-pointer"
                 }`}
                 style={isDragActive && termsAccepted ? { borderColor: "hsl(133, 55%, 40%)", background: "hsl(133, 48%, 97%)" } : {}}
               >
@@ -206,11 +311,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
                   <Upload className={`w-7 h-7 ${termsAccepted ? "" : "text-gray-300"}`} style={termsAccepted ? { color: "hsl(133, 48%, 36%)" } : {}} />
                 </div>
                 <p className={`text-base font-semibold mb-1 ${termsAccepted ? "text-gray-800" : "text-gray-400"}`}>
-                  {!termsAccepted
-                    ? "Accept the terms above to enable upload"
-                    : isDragActive
-                      ? "Drop your file here"
-                      : "Drag & drop or click to browse"}
+                  {!termsAccepted ? "Accept the terms above to enable upload" : isDragActive ? "Drop your file here" : "Drag & drop or click to browse"}
                 </p>
                 <p className="text-sm text-gray-400">PDF, PNG, JPG, TIFF, EPS — up to 50 MB</p>
                 {uploadMutation.isPending && (
@@ -231,17 +332,14 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
                     <p className="text-xs text-gray-500">{formatFileSize(uploadedFile.fileSize)}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setUploadedFile(null)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
-                >
+                <button onClick={() => setUploadedFile(null)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             )}
           </div>
 
-          {/* Analyze Button */}
+          {/* Analyze button */}
           <div className="text-center">
             <button
               onClick={handleStartAnalysis}
@@ -260,19 +358,18 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
               ) : (
                 <>
                   <Play className="w-5 h-5" />
-                  Analyze Ink Coverage
+                  Analyze Page Coverage
                 </>
               )}
             </button>
             {uploadedFile && (
               <p className="text-sm text-gray-400 mt-3">
-                Mode: <span className="font-medium text-gray-600">{mode === "cmyk" ? "CMYK (4 channels)" : "Color + Black (2 cartridges)"}</span>
+                {colorMode === "color" ? "Color" : "Black & White"} · {resolutionDPI} DPI · {pagePreset} ({widthMM}×{heightMM} mm)
               </p>
             )}
           </div>
         </div>
 
-        {/* Document Preview */}
         {uploadedFile && (
           <div className="mt-6">
             <DocumentPreview document={uploadedFile} />
