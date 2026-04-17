@@ -8,6 +8,7 @@ import {
   Download, ShieldCheck, ChevronRight
 } from "lucide-react";
 import { Link } from "wouter";
+import type { AnalysisSettings } from "@shared/schema";
 
 const features = [
   {
@@ -57,10 +58,10 @@ const stats = [
 
 export default function Home() {
   const [analysisId, setAnalysisId] = useState<number | null>(null);
-  const [mode, setMode] = useState<"cmyk" | "color_black">("cmyk");
+  const [settings, setSettings] = useState<AnalysisSettings | null>(null);
 
-  const handleAnalysisStart = (id: number, selectedMode: "cmyk" | "color_black") => {
-    setMode(selectedMode);
+  const handleAnalysisStart = (id: number, used: AnalysisSettings) => {
+    setSettings(used);
     setAnalysisId(id);
     setTimeout(() => {
       document.getElementById("results")?.scrollIntoView({ behavior: "smooth" });
@@ -179,7 +180,7 @@ export default function Home() {
       {/* ── Estimator Tool ── */}
       <section className="py-4" style={{ background: "hsl(120, 8%, 97%)" }}>
         <FileUpload onAnalysisStart={handleAnalysisStart} />
-        <AnalysisResults analysisId={analysisId} mode={mode} />
+        <AnalysisResults analysisId={analysisId} settings={settings} />
       </section>
 
       <Footer />

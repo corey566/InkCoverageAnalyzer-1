@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,10 +15,11 @@ export const analyses = pgTable("analyses", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").references(() => documents.id).notNull(),
   status: text("status").notNull().default("pending"),
-  mode: text("mode").notNull().default("cmyk"), // "cmyk" | "color_black"
+  mode: text("mode").notNull().default("cmyk"),
   totalPages: integer("total_pages"),
-  overallCoverage: jsonb("overall_coverage").$type<CMYKCoverage>(),
+  overallCoverage: jsonb("overall_coverage").$type<OverallCoverage>(),
   pageBreakdown: jsonb("page_breakdown").$type<PageAnalysis[]>(),
+  settings: jsonb("settings").$type<AnalysisSettings>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
   errorMessage: text("error_message"),
@@ -40,7 +41,28 @@ export type Document = typeof documents.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
 export type Analysis = typeof analyses.$inferSelect;
 
-export interface CMYKCoverage {
+// ── Page-area coverage model (mutually exclusive buckets) ─────────────────────
+
+export type ColorBucketKey =
+  | "black"
+  | "cyan"
+  | "magenta"
+  | "yellow"
+  | "red"
+  | "green"
+  | "blue"
+  | "gray"
+  | "other";
+
+export type ColorBuckets = Record<ColorBucketKey, number>;
+
+export const EMPTY_BUCKETS: ColorBuckets = {
+  black: 0, cyan: 0, magenta: 0, yellow: 0,
+  red: 0, green: 0, blue: 0, gray: 0, other: 0,
+};
+
+/** Optional internal CMYK ink-load (additive, can exceed 100%). Not for primary display. */
+export interface CMYKInkLoad {
   cyan: number;
   magenta: number;
   yellow: number;
@@ -49,48 +71,82 @@ export interface CMYKCoverage {
 
 export interface PageAnalysis {
   page: number;
-  cyan: number;
-  magenta: number;
-  yellow: number;
-  black: number;
-  total: number;
+  totalCoverage: number; // % of page area covered (0–100)
+  blankArea: number;     // 100 - totalCoverage
+  colors: ColorBuckets;  // each is % of page area; sum == totalCoverage
+  inkLoad?: CMYKInkLoad; // advanced — additive CMYK channel load
 }
+
+export interface OverallCoverage {
+  totalCoverage: number;
+  blankArea: number;
+  colors: ColorBuckets;
+  inkLoad?: CMYKInkLoad;
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export type PageSizePreset =
+  | "A4" | "Letter" | "Legal" | "Tabloid" | "Custom" | "Auto";
+
+export interface PageSize {
+  preset: PageSizePreset;
+  widthMM: number;
+  heightMM: number;
+}
+
+export type ColorMode = "color" | "bw";
+
+export interface AnalysisSettings {
+  pageSize: PageSize;
+  resolutionDPI: 72 | 150 | 300 | 600;
+  colorMode: ColorMode;
+}
+
+export const PAGE_SIZE_PRESETS: Record<Exclude<PageSizePreset, "Custom" | "Auto">, { widthMM: number; heightMM: number }> = {
+  A4:      { widthMM: 210, heightMM: 297 },
+  Letter:  { widthMM: 215.9, heightMM: 279.4 },
+  Legal:   { widthMM: 215.9, heightMM: 355.6 },
+  Tabloid: { widthMM: 279.4, heightMM: 431.8 },
+};
+
+// ── Analysis result envelope ──────────────────────────────────────────────────
 
 export interface AnalysisResult {
   totalPages: number;
-  overallCoverage: CMYKCoverage;
+  settings: AnalysisSettings;
+  overallCoverage: OverallCoverage;
   pageBreakdown: PageAnalysis[];
 }
 
+// ── Cost estimation ──────────────────────────────────────────────────────────
+
 export interface CostEstimate {
-  mode: "cmyk" | "color_black";
-  coverage: CMYKCoverage;
-  // CMYK mode
-  cyanYield?: number;
-  cyanPrice?: number;
-  magentaYield?: number;
-  magentaPrice?: number;
-  yellowYield?: number;
-  yellowPrice?: number;
+  mode: ColorMode; // "color" or "bw"
+  // Page-area coverage figures
+  totalCoverage: number;          // % page covered
+  blackCoverage: number;          // % page covered by black bucket (also full coverage in bw mode)
+  colorCoverage: number;          // totalCoverage - blackCoverage (color non-black)
+  copies: number;                 // number of copies
+  wastePercent: number;
+  // Cartridge inputs
   blackYield?: number;
   blackPrice?: number;
-  // Color+Black mode
   colorYield?: number;
   colorPrice?: number;
-  // Shared
-  wastePercent: number;
+  // Standard reference coverage (default 5)
+  referenceCoverage?: number;
 }
 
 export interface CostResult {
-  mode: "cmyk" | "color_black";
+  mode: ColorMode;
   baseCostPerPage: number;
   adjustedCostPerPage: number;
   rangeMin: number;
   rangeMax: number;
+  totalCost: number;             // for all copies (adjusted)
+  copies: number;
   breakdown: {
-    cyan?: number;
-    magenta?: number;
-    yellow?: number;
     black?: number;
     color?: number;
   };

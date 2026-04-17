@@ -65,10 +65,11 @@ export class MemStorage implements IStorage {
       completedAt: null,
       documentId: insertAnalysis.documentId,
       status: insertAnalysis.status ?? "pending",
-      mode: insertAnalysis.mode ?? "cmyk",
+      mode: insertAnalysis.mode ?? "color",
       totalPages: insertAnalysis.totalPages ?? null,
-      overallCoverage: insertAnalysis.overallCoverage ?? null,
-      pageBreakdown: insertAnalysis.pageBreakdown ?? null,
+      overallCoverage: (insertAnalysis.overallCoverage as Analysis["overallCoverage"]) ?? null,
+      pageBreakdown: (insertAnalysis.pageBreakdown as Analysis["pageBreakdown"]) ?? null,
+      settings: (insertAnalysis.settings as Analysis["settings"]) ?? null,
       errorMessage: insertAnalysis.errorMessage ?? null,
     };
     this.analyses.set(id, analysis);

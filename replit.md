@@ -24,29 +24,41 @@ A professional web application for print shops and mass printing centers that an
 - **File Processing**: Multer (50MB limit)
 - **Storage**: In-memory (MemStorage)
 
-## Analysis Engine
+## Analysis Engine — Page-Area Coverage Model
 
-### Primary Method (PDFs): Ghostscript `inkcov` device
-Reads CMYK ink coverage **directly from the PDF's color specifications**.
-Output format: `C  M  Y  K  CMYK OK` (values 0.0–1.0 per page)
+The engine computes **mutually-exclusive page-area coverage**, not additive CMYK ink load.
+Every displayed percentage is a share of the full page; totals never exceed 100%.
 
-### Fallback Method (images + PDF fallback): ImageMagick RGB formula
-Renders each page to RGB with a white background, then calculates CMYK.
+### Pipeline
+1. Render each page (PDF/EPS/image) at the user-selected DPI, composited onto a
+   white canvas matching the user's chosen page size (A4, Letter, Legal, Tabloid,
+   Custom, or auto-detected from PDF metadata).
+2. Walk every pixel and assign it to **one** bucket:
+   `black`, `cyan`, `magenta`, `yellow`, `red`, `green`, `blue`, `gray`, `other`.
+   Near-white pixels are counted as `blankArea` (uncovered paper).
+3. Aggregate counts as page-area %. Total coverage = sum of color buckets;
+   blank = 100 − total.
 
-## Features
+In B&W mode every covered pixel is bucketed as `black`; the result is the total
+inked area as a single percentage of the page.
 
-### Document Preview
+Optional Ghostscript `inkcov` data is captured separately as `inkLoad` for
+advanced display only — never mixed into the primary percentages.
+
+## Settings (required before analysis)
+- **Page size**: A4 / Letter / Legal / Tabloid / Custom / Auto (PDF auto-detect, server-side enforced)
+- **Resolution**: 72 / 150 / 300 / 600 DPI
+- **Mode**: Color or Black & White
+
+## Cost Estimator
+Formula: `effective_yield = rated_yield × (reference_coverage % ÷ actual_coverage %)`
+Inputs: copies, cartridge yield/price (black + optional color), reference coverage (default 5%), waste %.
+Outputs: base cost/page, adjusted cost/page, ±8% range, total cost for all copies, cartridge breakdown.
+
+## Document Preview
 - PDFs: embedded iframe viewer with scroll/navigation
 - Images (PNG, JPG, TIFF): displayed with zoom controls (50–200%)
-- Served via `/api/documents/:id/file` endpoint
-
-### Analysis Modes
-1. **CMYK Mode** — Separate Cyan, Magenta, Yellow, Black channels
-2. **Color + Black Mode** — Combined color cartridge (CMY average) + black
-
-### Cost Estimator
-Formula: `effective_yield = rated_yield × (5 / actual_coverage)`
-Displays base cost, adjusted cost (with waste factor), variation range (±8%), per-cartridge breakdown.
+- Served via `/api/documents/:id/file`
 
 ### PDF Export
 Click "Export PDF Report" after analysis to download a formatted PDF with:
@@ -71,10 +83,11 @@ Click "Export PDF Report" after analysis to download a formatted PDF with:
 ## API Endpoints
 
 - `POST /api/documents/upload` — Upload file (PDF, PNG, JPG, TIFF, EPS)
-- `POST /api/documents/:id/analyze` — Start analysis
+- `GET /api/documents/:id/page-info` — Detect PDF page dimensions for prefill
+- `POST /api/documents/:id/analyze` — Start analysis (body: `AnalysisSettings`)
 - `GET /api/documents/:id/file` — Serve file for preview
 - `GET /api/analyses/:id` — Poll for results
-- `POST /api/estimate` — Calculate cost per page
+- `POST /api/estimate` — Calculate cost per page (page-area coverage model)
 
 ## Key Files
 
