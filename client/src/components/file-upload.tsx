@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Upload, FileText, Play, Printer, Layers, ShieldAlert } from "lucide-react";
+import { X, Upload, FileText, Play, Printer, Layers, ShieldAlert, Droplets } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type {
@@ -12,6 +12,7 @@ import type {
   AnalysisSettings,
   PageSizePreset,
   ColorMode,
+  PrinterType,
 } from "@shared/schema";
 import { PAGE_SIZE_PRESETS } from "@shared/schema";
 import { DocumentPreview } from "@/components/document-preview";
@@ -32,6 +33,7 @@ function formatFileSize(bytes: number): string {
 
 export function FileUpload({ onAnalysisStart }: FileUploadProps) {
   const [uploadedFile, setUploadedFile] = useState<Document | null>(null);
+  const [printerType, setPrinterType] = useState<PrinterType>("cmyk");
   const [colorMode, setColorMode] = useState<ColorMode>("color");
   const [resolutionDPI, setResolutionDPI] = useState<72 | 150 | 300 | 600>(150);
   const [pagePreset, setPagePreset] = useState<PageSizePreset>("Auto");
@@ -60,7 +62,6 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
     onSuccess: async (document: Document) => {
       setUploadedFile(document);
       toast({ title: "File uploaded", description: `${document.originalName} is ready for analysis.` });
-      // Auto-detect PDF page dimensions for prefill
       try {
         const r = await apiRequest("GET", `/api/documents/${document.id}/page-info`);
         const info = await r.json();
@@ -122,13 +123,14 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
     const w = parseFloat(widthMM);
     const h = parseFloat(heightMM);
     return {
+      printerType,
+      colorMode,
       pageSize: {
         preset: pagePreset,
         widthMM: isFinite(w) ? w : 210,
         heightMM: isFinite(h) ? h : 297,
       },
       resolutionDPI,
-      colorMode,
     };
   };
 
@@ -146,14 +148,17 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
     analyzeMutation.mutate(buildSettings());
   };
 
+  const printerLabel = printerType === "cmyk" ? "CMYK Cartridge Analysis" : "Color & Black Cartridge";
+  const modeLabel = colorMode === "color" ? "Color Print" : "Black & White Print";
+
   return (
     <section id="estimator" className="py-20" style={{ background: "hsl(120, 8%, 97%)" }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <p className="section-label mb-3">Professional Tool</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Page Coverage Estimator</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Ink &amp; Toner Coverage Estimator</h2>
           <p className="text-gray-500 text-base max-w-xl mx-auto">
-            Upload a document, choose your page size and resolution, and get true page-area coverage you can trust for cost estimates.
+            Pick your printer setup, choose Color or Black &amp; White, then page size and resolution. Upload to get accurate cartridge coverage and per-page cost.
           </p>
         </div>
 
@@ -161,9 +166,50 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
           className="bg-white rounded-2xl border border-gray-100 p-8 space-y-8"
           style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07), 0 16px 40px rgba(0,0,0,0.06)" }}
         >
-          {/* Analysis Mode */}
+          {/* Step 1: Printer Type */}
           <div>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Analysis Mode</h3>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Step 1 — Printer / Cartridge Type</h3>
+            <p className="text-xs text-gray-400 mb-4">Choose how your printer's cartridges are configured.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setPrinterType("cmyk")}
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  printerType === "cmyk" ? "border-green-600 bg-green-50" : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <Droplets className={`w-5 h-5 mt-0.5 ${printerType === "cmyk" ? "text-green-700" : "text-gray-400"}`} />
+                <div>
+                  <div className={`font-semibold text-sm ${printerType === "cmyk" ? "text-green-900" : "text-gray-700"}`}>
+                    CMYK Cartridge Analysis
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    4 separate cartridges. Shows individual coverage for Cyan, Magenta, Yellow, and Black.
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => setPrinterType("color-black")}
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                  printerType === "color-black" ? "border-green-600 bg-green-50" : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <Printer className={`w-5 h-5 mt-0.5 ${printerType === "color-black" ? "text-green-700" : "text-gray-400"}`} />
+                <div>
+                  <div className={`font-semibold text-sm ${printerType === "color-black" ? "text-green-900" : "text-gray-700"}`}>
+                    Color &amp; Black (Inkjet)
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    Standard 2-cartridge inkjet. Shows combined Color cartridge usage and Black cartridge usage.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2: Print Mode */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Step 2 — Print Mode</h3>
+            <p className="text-xs text-gray-400 mb-4">Will the document be printed in color or black &amp; white?</p>
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setColorMode("color")}
@@ -173,8 +219,8 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
               >
                 <Layers className={`w-5 h-5 ${colorMode === "color" ? "text-green-700" : "text-gray-400"}`} />
                 <div>
-                  <div className={`font-semibold text-sm ${colorMode === "color" ? "text-green-900" : "text-gray-700"}`}>Color</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Page-area distribution by color category</div>
+                  <div className={`font-semibold text-sm ${colorMode === "color" ? "text-green-900" : "text-gray-700"}`}>Color Print</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Uses every cartridge as needed.</div>
                 </div>
               </button>
               <button
@@ -185,19 +231,20 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
               >
                 <Printer className={`w-5 h-5 ${colorMode === "bw" ? "text-green-700" : "text-gray-400"}`} />
                 <div>
-                  <div className={`font-semibold text-sm ${colorMode === "bw" ? "text-green-900" : "text-gray-700"}`}>Black & White</div>
-                  <div className="text-xs text-gray-500 mt-0.5">Black coverage as % of total page area</div>
+                  <div className={`font-semibold text-sm ${colorMode === "bw" ? "text-green-900" : "text-gray-700"}`}>Black &amp; White Print</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Only the black cartridge is used.</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Page Size */}
+          {/* Step 3: Page Size & Resolution */}
           <div>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Page Size</h3>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Step 3 — Page Size &amp; Resolution</h3>
+            <p className="text-xs text-gray-400 mb-4">All coverage values are calibrated to this page size.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Preset</Label>
+                <Label className="text-xs text-gray-500 mb-1 block">Page Preset</Label>
                 <select
                   value={pagePreset}
                   onChange={(e) => setPagePreset(e.target.value as PageSizePreset)}
@@ -227,14 +274,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
                 />
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              All percentages are calibrated against this final page size. PDFs auto-detect; you can still override.
-            </p>
-          </div>
-
-          {/* Resolution */}
-          <div>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Resolution</h3>
+            <Label className="text-xs text-gray-500 mb-2 mt-4 block">Resolution (DPI)</Label>
             <div className="grid grid-cols-4 gap-3">
               {DPI_OPTIONS.map((dpi) => (
                 <button
@@ -295,7 +335,7 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
 
           {/* Upload */}
           <div>
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Upload Document</h3>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Step 4 — Upload Document</h3>
             {!uploadedFile ? (
               <div
                 {...(termsAccepted ? getRootProps() : {})}
@@ -358,13 +398,13 @@ export function FileUpload({ onAnalysisStart }: FileUploadProps) {
               ) : (
                 <>
                   <Play className="w-5 h-5" />
-                  Analyze Page Coverage
+                  Analyze Coverage
                 </>
               )}
             </button>
             {uploadedFile && (
               <p className="text-sm text-gray-400 mt-3">
-                {colorMode === "color" ? "Color" : "Black & White"} · {resolutionDPI} DPI · {pagePreset} ({widthMM}×{heightMM} mm)
+                {printerLabel} · {modeLabel} · {resolutionDPI} DPI · {pagePreset} ({widthMM}×{heightMM} mm)
               </p>
             )}
           </div>
