@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "QX5OmS6s_dTj3e6HEUAg9"
+uri = "file://HOW_IT_WORKS.md"
+type = "text"
+title = "Sterling Carter Coverage Analyzer — How It Works"
