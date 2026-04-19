@@ -70,10 +70,14 @@ export interface ChannelCoverage {
 export interface PageAnalysis {
   page: number;
   channels: ChannelCoverage;
+  /** Page-area coverage: % of the page that has any ink at all. Always 0–100. */
+  coveragePercent: number;
 }
 
 export interface OverallCoverage {
   channels: ChannelCoverage;
+  /** Document-average page-area coverage. Always 0–100. */
+  coveragePercent: number;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
