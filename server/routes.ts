@@ -258,6 +258,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     catch { res.status(500).json({ message: "Failed to get documents" }); }
   });
 
+  // PDF preview: render a single page to a PNG so all browsers can show it
+  app.get("/api/documents/:id/preview", async (req, res) => {
+    try {
+      const document = await storage.getDocument(parseInt(req.params.id, 10));
+      if (!document) return res.status(404).json({ message: "Document not found" });
+      const pageRaw = parseInt((req.query.page as string) || "1", 10);
+      const page = isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+      const previewDir = path.join(process.cwd(), "previews");
+      await fs.mkdir(previewDir, { recursive: true });
+      const outPath = path.join(previewDir, `${document.filename}_p${page}.png`);
+
+      try {
+        await fs.access(outPath);
+      } catch {
+        const filePath = path.join(uploadDir, document.filename);
+        if (document.mimeType === "application/pdf" || document.mimeType === "application/postscript") {
+          const { exec } = await import("child_process");
+          const { promisify } = await import("util");
+          const execAsync = promisify(exec);
+          await execAsync(
+            `convert -density 150 -background white -alpha remove -alpha off "${filePath}[${page - 1}]" -resize 1200x1600 "${outPath}"`,
+            { maxBuffer: 64 * 1024 * 1024 },
+          );
+        } else if (document.mimeType.startsWith("image/")) {
+          // Just copy/normalize the image to PNG
+          const { exec } = await import("child_process");
+          const { promisify } = await import("util");
+          const execAsync = promisify(exec);
+          await execAsync(`convert "${filePath}" -resize 1200x1600 "${outPath}"`);
+        } else {
+          return res.status(415).json({ message: "Preview not supported for this file type" });
+        }
+      }
+
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.sendFile(outPath);
+    } catch (err) {
+      console.error("Preview error:", err);
+      res.status(500).json({ message: "Failed to render preview" });
+    }
+  });
+
   app.get("/api/documents/:id/file", async (req, res) => {
     try {
       const document = await storage.getDocument(parseInt(req.params.id, 10));

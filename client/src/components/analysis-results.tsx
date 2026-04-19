@@ -38,6 +38,15 @@ function activeKeys(printerType: PrinterType, mode: ColorMode): ChannelKey[] {
   return ["black", "color"];
 }
 
+/**
+ * Total ink load — sum of all active cartridge coverages.
+ * Channels are independent so this can exceed 100% (e.g. solid black on a
+ * CMYK printer is roughly 100% K + some C/M/Y for richness ≈ 200–280%).
+ */
+function totalCoverage(channels: ChannelCoverage, keys: ChannelKey[]): number {
+  return keys.reduce((sum, k) => sum + (channels[k] ?? 0), 0);
+}
+
 function CoverageCard({ label, value, dotColor, barClass }: {
   label: string; value: number; dotColor: string; barClass: string;
 }) {
@@ -141,12 +150,22 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     rows.push([]);
     rows.push(["Document Average Cartridge Coverage"]);
     keys.forEach((k) => rows.push([CHANNEL_META[k].label, `${(ch[k] ?? 0).toFixed(2)}%`]));
+    rows.push(["Total Coverage (sum of all cartridges)", `${totalCoverage(ch, keys).toFixed(2)}%`]);
     rows.push([]);
     rows.push(["Per-Page Breakdown"]);
-    rows.push(["Page", ...keys.map((k) => `${CHANNEL_META[k].label} %`)]);
+    rows.push(["Page", ...keys.map((k) => `${CHANNEL_META[k].label} %`), "Total %"]);
     analysis.pageBreakdown.forEach((p) => {
-      rows.push([String(p.page), ...keys.map((k) => (p.channels[k] ?? 0).toFixed(2))]);
+      rows.push([
+        String(p.page),
+        ...keys.map((k) => (p.channels[k] ?? 0).toFixed(2)),
+        totalCoverage(p.channels, keys).toFixed(2),
+      ]);
     });
+    rows.push([
+      "Document Average",
+      ...keys.map((k) => (ch[k] ?? 0).toFixed(2)),
+      totalCoverage(ch, keys).toFixed(2),
+    ]);
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -205,6 +224,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
     doc.text("Document Average — Cartridge Coverage", margin, y); y += 4;
     const summaryRows: string[][] = keys.map((k) => [CHANNEL_META[k].label, `${(ch[k] ?? 0).toFixed(2)}%`]);
+    summaryRows.push(["Total Coverage (all cartridges)", `${totalCoverage(ch, keys).toFixed(2)}%`]);
     autoTable(doc, {
       startY: y, head: [["Cartridge", "Average Coverage"]], body: summaryRows,
       margin: { left: margin, right: margin }, styles: { fontSize: 9 },
@@ -215,10 +235,16 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
 
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
     doc.text("Per-Page Breakdown", margin, y); y += 4;
-    const head = [["Page", ...keys.map((k) => CHANNEL_META[k].label)]];
+    const head = [["Page", ...keys.map((k) => CHANNEL_META[k].label), "Total"]];
     const body = analysis.pageBreakdown.map((p) => [
       `Page ${p.page}`,
       ...keys.map((k) => `${(p.channels[k] ?? 0).toFixed(2)}%`),
+      `${totalCoverage(p.channels, keys).toFixed(2)}%`,
+    ]);
+    body.push([
+      "Document Average",
+      ...keys.map((k) => `${(ch[k] ?? 0).toFixed(2)}%`),
+      `${totalCoverage(ch, keys).toFixed(2)}%`,
     ]);
     autoTable(doc, {
       startY: y, head, body,
@@ -354,7 +380,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
             (an area printed in green uses both Cyan and Yellow cartridges), so values do not need to add up to 100%.
           </p>
 
-          <div className={`grid grid-cols-1 gap-3 mb-2 ${
+          <div className={`grid grid-cols-1 gap-3 mb-4 ${
             keys.length === 1 ? "" :
             keys.length === 2 ? "md:grid-cols-2" :
             keys.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4"
@@ -368,6 +394,29 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
                 barClass={CHANNEL_META[k].cssBar}
               />
             ))}
+          </div>
+
+          {/* Total ink load */}
+          <div className="rounded-xl p-4 border-2 border-green-200" style={{ background: "hsl(133, 48%, 97%)" }}>
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <p className="font-bold text-sm" style={{ color: "hsl(133, 48%, 25%)" }}>Total Coverage (All Cartridges)</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {colorMode === "bw"
+                    ? "Black cartridge load."
+                    : "Sum of every active cartridge. May exceed 100% — that's normal for rich color or solid black."}
+                </p>
+              </div>
+              <span className="text-2xl font-bold" style={{ color: "hsl(133, 48%, 25%)" }}>
+                {totalCoverage(ch, keys).toFixed(2)}%
+              </span>
+            </div>
+            <div className="w-full bg-white rounded-full h-2.5 overflow-hidden border border-green-100">
+              <div className="h-full rounded-full transition-all duration-700" style={{
+                width: `${Math.min(totalCoverage(ch, keys), 100)}%`,
+                background: "hsl(133, 55%, 40%)",
+              }} />
+            </div>
           </div>
         </div>
 
@@ -384,6 +433,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
                       {CHANNEL_META[k].label}
                     </th>
                   ))}
+                  <th className="text-right py-3 px-2 font-semibold" style={{ color: "hsl(133, 48%, 30%)" }}>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -395,9 +445,25 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
                         {(p.channels[k] ?? 0) > 0.005 ? `${(p.channels[k] ?? 0).toFixed(2)}%` : "—"}
                       </td>
                     ))}
+                    <td className="py-2.5 px-2 text-right font-bold" style={{ color: "hsl(133, 48%, 30%)" }}>
+                      {totalCoverage(p.channels, keys).toFixed(2)}%
+                    </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-green-200 bg-green-50/50">
+                  <td className="py-3 px-2 font-bold text-gray-900 text-sm">Document Average</td>
+                  {keys.map((k) => (
+                    <td key={k} className="py-3 px-2 text-right font-bold text-gray-800">
+                      {(ch[k] ?? 0).toFixed(2)}%
+                    </td>
+                  ))}
+                  <td className="py-3 px-2 text-right font-bold" style={{ color: "hsl(133, 48%, 25%)" }}>
+                    {totalCoverage(ch, keys).toFixed(2)}%
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
           {pages.length > 5 && (
