@@ -39,13 +39,9 @@ function activeKeys(printerType: PrinterType, mode: ColorMode): ChannelKey[] {
 }
 
 /**
- * Total ink load — sum of all active cartridge coverages.
- * Channels are independent so this can exceed 100% (e.g. solid black on a
- * CMYK printer is roughly 100% K + some C/M/Y for richness ≈ 200–280%).
+ * Page-area coverage — % of the page that has any ink at all (0–100, capped).
+ * This is the "total coverage" the user sees and is provided by the engine.
  */
-function totalCoverage(channels: ChannelCoverage, keys: ChannelKey[]): number {
-  return keys.reduce((sum, k) => sum + (channels[k] ?? 0), 0);
-}
 
 function CoverageCard({ label, value, dotColor, barClass }: {
   label: string; value: number; dotColor: string; barClass: string;
@@ -150,7 +146,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     rows.push([]);
     rows.push(["Document Average Cartridge Coverage"]);
     keys.forEach((k) => rows.push([CHANNEL_META[k].label, `${(ch[k] ?? 0).toFixed(2)}%`]));
-    rows.push(["Total Coverage (sum of all cartridges)", `${totalCoverage(ch, keys).toFixed(2)}%`]);
+    rows.push(["Total Page Coverage", `${(analysis.overallCoverage.coveragePercent).toFixed(2)}%`]);
     rows.push([]);
     rows.push(["Per-Page Breakdown"]);
     rows.push(["Page", ...keys.map((k) => `${CHANNEL_META[k].label} %`), "Total %"]);
@@ -158,13 +154,13 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
       rows.push([
         String(p.page),
         ...keys.map((k) => (p.channels[k] ?? 0).toFixed(2)),
-        totalCoverage(p.channels, keys).toFixed(2),
+        (p.coveragePercent).toFixed(2),
       ]);
     });
     rows.push([
       "Document Average",
       ...keys.map((k) => (ch[k] ?? 0).toFixed(2)),
-      totalCoverage(ch, keys).toFixed(2),
+      (analysis.overallCoverage.coveragePercent).toFixed(2),
     ]);
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -224,7 +220,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(10, 45, 20);
     doc.text("Document Average — Cartridge Coverage", margin, y); y += 4;
     const summaryRows: string[][] = keys.map((k) => [CHANNEL_META[k].label, `${(ch[k] ?? 0).toFixed(2)}%`]);
-    summaryRows.push(["Total Coverage (all cartridges)", `${totalCoverage(ch, keys).toFixed(2)}%`]);
+    summaryRows.push(["Total Page Coverage", `${(analysis.overallCoverage.coveragePercent).toFixed(2)}%`]);
     autoTable(doc, {
       startY: y, head: [["Cartridge", "Average Coverage"]], body: summaryRows,
       margin: { left: margin, right: margin }, styles: { fontSize: 9 },
@@ -239,12 +235,12 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
     const body = analysis.pageBreakdown.map((p) => [
       `Page ${p.page}`,
       ...keys.map((k) => `${(p.channels[k] ?? 0).toFixed(2)}%`),
-      `${totalCoverage(p.channels, keys).toFixed(2)}%`,
+      `${(p.coveragePercent).toFixed(2)}%`,
     ]);
     body.push([
       "Document Average",
       ...keys.map((k) => `${(ch[k] ?? 0).toFixed(2)}%`),
-      `${totalCoverage(ch, keys).toFixed(2)}%`,
+      `${(analysis.overallCoverage.coveragePercent).toFixed(2)}%`,
     ]);
     autoTable(doc, {
       startY: y, head, body,
@@ -376,8 +372,9 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
         <div className="bg-white rounded-2xl border border-gray-100 p-6" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
           <h3 className="text-base font-bold text-gray-900 mb-1">Document Average — Cartridge Coverage</h3>
           <p className="text-sm text-gray-400 mb-5">
-            Each value is the average ink load on that cartridge across the page area. Cartridges are independent
-            (an area printed in green uses both Cyan and Yellow cartridges), so values do not need to add up to 100%.
+            Each value is the average ink load on that individual cartridge (0–100%). Cartridges are independent —
+            an area printed in green uses both the Cyan and the Yellow cartridge, so cartridge values overlap.
+            The total page coverage below is the share of the page that has any ink at all.
           </p>
 
           <div className={`grid grid-cols-1 gap-3 mb-4 ${
@@ -400,20 +397,18 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
           <div className="rounded-xl p-4 border-2 border-green-200" style={{ background: "hsl(133, 48%, 97%)" }}>
             <div className="flex justify-between items-center mb-2">
               <div>
-                <p className="font-bold text-sm" style={{ color: "hsl(133, 48%, 25%)" }}>Total Coverage (All Cartridges)</p>
+                <p className="font-bold text-sm" style={{ color: "hsl(133, 48%, 25%)" }}>Total Page Coverage</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {colorMode === "bw"
-                    ? "Black cartridge load."
-                    : "Sum of every active cartridge. May exceed 100% — that's normal for rich color or solid black."}
+                  Percentage of the page that has any ink on it. The remaining {(100 - analysis.overallCoverage.coveragePercent).toFixed(2)}% is blank paper.
                 </p>
               </div>
               <span className="text-2xl font-bold" style={{ color: "hsl(133, 48%, 25%)" }}>
-                {totalCoverage(ch, keys).toFixed(2)}%
+                {(analysis.overallCoverage.coveragePercent).toFixed(2)}%
               </span>
             </div>
             <div className="w-full bg-white rounded-full h-2.5 overflow-hidden border border-green-100">
               <div className="h-full rounded-full transition-all duration-700" style={{
-                width: `${Math.min(totalCoverage(ch, keys), 100)}%`,
+                width: `${Math.min((analysis.overallCoverage.coveragePercent), 100)}%`,
                 background: "hsl(133, 55%, 40%)",
               }} />
             </div>
@@ -446,7 +441,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
                       </td>
                     ))}
                     <td className="py-2.5 px-2 text-right font-bold" style={{ color: "hsl(133, 48%, 30%)" }}>
-                      {totalCoverage(p.channels, keys).toFixed(2)}%
+                      {(p.coveragePercent).toFixed(2)}%
                     </td>
                   </tr>
                 ))}
@@ -460,7 +455,7 @@ export function AnalysisResults({ analysisId, settings }: AnalysisResultsProps) 
                     </td>
                   ))}
                   <td className="py-3 px-2 text-right font-bold" style={{ color: "hsl(133, 48%, 25%)" }}>
-                    {totalCoverage(ch, keys).toFixed(2)}%
+                    {(analysis.overallCoverage.coveragePercent).toFixed(2)}%
                   </td>
                 </tr>
               </tfoot>
