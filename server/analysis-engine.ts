@@ -19,7 +19,7 @@ export interface DetectedPDFInfo {
   heightMM: number;
 }
 
-interface RawCMYK { c: number; m: number; y: number; k: number; }
+interface RawCMYK { c: number; m: number; y: number; k: number; coveragePercent: number; }
 
 export class DocumentAnalysisEngine {
   async analyzeDocument(
@@ -40,22 +40,26 @@ export class DocumentAnalysisEngine {
       }
     }
 
-    // Try Ghostscript inkcov first (most accurate for PDFs).
-    const inkcovPages: RawCMYK[] = isPDF
+    // Try Ghostscript inkcov first (most accurate per-channel CMYK for PDFs).
+    const inkcovPages: Omit<RawCMYK, "coveragePercent">[] = isPDF
       ? await this.tryGhostscriptInkcov(filePath, pageCount).catch(() => [])
       : [];
 
     const pageBreakdown: PageAnalysis[] = [];
     for (let i = 0; i < pageCount; i++) {
+      // Always do a pixel pass — gives us inked-area % (capped at 100) and
+      // serves as the per-channel source when inkcov is unavailable.
+      const pixel = await this.analyzePixelsCMYK(filePath, mimeType, i, settings);
       let raw: RawCMYK;
       if (inkcovPages[i]) {
-        raw = inkcovPages[i];
+        raw = { ...inkcovPages[i], coveragePercent: pixel.coveragePercent };
       } else {
-        raw = await this.analyzePixelsCMYK(filePath, mimeType, i, settings);
+        raw = pixel;
       }
       pageBreakdown.push({
         page: i + 1,
         channels: this.shapeChannels(raw, settings),
+        coveragePercent: round2(raw.coveragePercent),
       });
     }
 
@@ -80,7 +84,7 @@ export class DocumentAnalysisEngine {
   }
 
   // ── Ghostscript inkcov: real per-channel ink coverage from PDF colorspace ──
-  private async tryGhostscriptInkcov(filePath: string, expectedPages: number): Promise<RawCMYK[]> {
+  private async tryGhostscriptInkcov(filePath: string, expectedPages: number): Promise<Omit<RawCMYK, "coveragePercent">[]> {
     try {
       const { stdout } = await execAsync(
         `gs -q -dBATCH -dNOPAUSE -sDEVICE=inkcov -sOutputFile=/dev/null "${filePath}" 2>&1`,
@@ -187,6 +191,7 @@ export class DocumentAnalysisEngine {
     const buf: Buffer = stdout as unknown as Buffer;
 
     let sumC = 0, sumM = 0, sumY = 0, sumK = 0;
+    let inkedPixels = 0;
     const len = Math.min(buf.length, totalPixels * 3);
 
     for (let i = 0; i < len; i += 3) {
@@ -196,6 +201,7 @@ export class DocumentAnalysisEngine {
 
       // Skip near-white paper (no ink).
       if (min >= 245 && max - min <= 8) continue;
+      inkedPixels++;
 
       // RGB -> CMYK [0..1]
       const k = 1 - max / 255;
@@ -217,6 +223,7 @@ export class DocumentAnalysisEngine {
       m: (sumM / totalPixels) * 100,
       y: (sumY / totalPixels) * 100,
       k: (sumK / totalPixels) * 100,
+      coveragePercent: (inkedPixels / totalPixels) * 100,
     };
   }
 
@@ -247,16 +254,18 @@ export class DocumentAnalysisEngine {
   // ── Aggregate (document averages) ──────────────────────────────────────────
   private aggregate(pages: PageAnalysis[], settings: AnalysisSettings): OverallCoverage {
     if (pages.length === 0) {
-      return { channels: this.emptyChannels(settings) };
+      return { channels: this.emptyChannels(settings), coveragePercent: 0 };
     }
     const sums: Record<keyof ChannelCoverage, number> = {
       black: 0, cyan: 0, magenta: 0, yellow: 0, color: 0,
     };
+    let coverageSum = 0;
     for (const p of pages) {
       (Object.keys(sums) as (keyof ChannelCoverage)[]).forEach((k) => {
         const v = p.channels[k];
         if (typeof v === "number") sums[k] += v;
       });
+      coverageSum += p.coveragePercent;
     }
     const n = pages.length;
     const out: ChannelCoverage = { black: round2(sums.black / n) };
@@ -269,7 +278,7 @@ export class DocumentAnalysisEngine {
         out.color = round2(sums.color / n);
       }
     }
-    return { channels: out };
+    return { channels: out, coveragePercent: round2(coverageSum / n) };
   }
 
   private emptyChannels(settings: AnalysisSettings): ChannelCoverage {
