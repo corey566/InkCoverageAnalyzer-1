@@ -112,8 +112,16 @@ export function Footer() {
             </h4>
             <p className="mb-6 text-sm leading-relaxed text-white/65">
               Professional printing solutions and technology services for
-              businesses across Jamaica and the Caribbean. Powered by
-              Ghostscript analysis.
+              businesses across Jamaica and the Caribbean. Powered by{" "}
+              <a
+                href="https://orianwave.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-green-300 hover:text-green-200 underline"
+              >
+                OrianWave
+              </a>
+              .
             </p>
             <div className="flex items-center gap-3">
               {socialLinks.map(({ icon: Icon, href, label }) => (
