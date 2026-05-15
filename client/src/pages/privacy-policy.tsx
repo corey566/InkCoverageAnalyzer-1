@@ -5,24 +5,28 @@ import { ShieldCheck, Lock, Trash2, Eye, Server, Mail } from "lucide-react";
 
 const highlights = [
   {
-    icon: <Trash2 className="w-6 h-6 text-green-600" />,
+    icon: <Trash2 className="h-6 w-6 text-green-600" />,
     title: "No Document Retention",
-    description: "Uploaded files are processed in a temporary directory and permanently deleted after analysis. We do not store, archive, or index document content.",
+    description:
+      "Uploaded files are processed in a temporary directory and permanently deleted after analysis. We do not store, archive, or index document content.",
   },
   {
-    icon: <Lock className="w-6 h-6 text-blue-600" />,
+    icon: <Lock className="h-6 w-6 text-blue-600" />,
     title: "No Personal Data Collected",
-    description: "We do not collect your name, email address, or any personally identifiable information. No account registration is required or offered.",
+    description:
+      "We do not collect your name, email address, or any personally identifiable information. No account registration is required or offered.",
   },
   {
-    icon: <Eye className="w-6 h-6 text-purple-600" />,
+    icon: <Eye className="h-6 w-6 text-purple-600" />,
     title: "No Tracking or Analytics",
-    description: "We do not use third-party analytics, advertising trackers, or cookies beyond those strictly necessary for the application to function.",
+    description:
+      "We do not use third-party analytics, advertising trackers, or cookies beyond those strictly necessary for the application to function.",
   },
   {
-    icon: <Server className="w-6 h-6 text-orange-600" />,
+    icon: <Server className="h-6 w-6 text-orange-600" />,
     title: "No Third-Party Sharing",
-    description: "Your documents and usage data are never shared with, sold to, or processed by any third-party service providers.",
+    description:
+      "Your documents and usage data are never shared with, sold to, or processed by any third-party service providers.",
   },
 ];
 
@@ -104,75 +108,128 @@ We will respond to all privacy-related enquiries within 5 business days.`,
 
 export default function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Header />
 
-      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white py-16">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full mb-6">
-            <ShieldCheck className="w-4 h-4" />
-            <span className="text-sm font-medium">Privacy Policy</span>
+      <section className="relative overflow-hidden text-white">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, #06180c 0%, #092e17 48%, #051108 100%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(255,255,255,0.22) 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+          }}
+        />
+        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-green-500/20 blur-3xl" />
+        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-yellow-400/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-4xl px-4 py-20 text-center md:py-24">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-400/25 bg-green-400/10 px-4 py-2 text-sm font-bold text-green-300 backdrop-blur">
+            <ShieldCheck className="h-4 w-4" />
+            Privacy Policy
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Your Privacy Matters</h1>
-          <p className="text-xl text-blue-200 max-w-2xl mx-auto">
-            No user data is retained. No personal information is collected. Your documents are yours alone.
+          <h1 className="mb-4 text-4xl font-black tracking-tight md:text-5xl">
+            Your Privacy Matters
+          </h1>
+          <p className="mx-auto max-w-2xl text-xl text-green-50/75">
+            No user data is retained. No personal information is collected. Your
+            documents are yours alone.
           </p>
-          <p className="text-blue-300 text-sm mt-4">Last updated: March 2026</p>
+          <p className="mt-4 text-sm text-green-300/70">
+            Last updated: March 2026
+          </p>
         </div>
       </section>
 
-      <section className="py-16 max-w-4xl mx-auto px-4 space-y-10">
+      <section
+        className="relative overflow-hidden py-16"
+        style={{
+          background:
+            "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 42%, #ecfeff 100%)",
+        }}
+      >
+        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-green-200/40 blur-3xl" />
+        <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
 
-        {/* Key highlights */}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Our Privacy Commitments</h2>
-          <div className="grid md:grid-cols-2 gap-5">
-            {highlights.map((h) => (
-              <Card key={h.title} className="border-gray-200 shadow-sm">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      {h.icon}
+        <div className="relative mx-auto max-w-4xl space-y-10 px-4">
+          <div>
+            <h2 className="mb-6 text-center text-2xl font-black text-slate-950">
+              Our Privacy Commitments
+            </h2>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              {highlights.map((h) => (
+                <Card
+                  key={h.title}
+                  className="rounded-[1.75rem] border border-white/80 bg-white/75 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all hover:-translate-y-1 hover:border-green-200"
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-green-50">
+                        {h.icon}
+                      </div>
+                      <div>
+                        <h3 className="mb-1 font-black text-slate-950">
+                          {h.title}
+                        </h3>
+                        <p className="text-sm leading-relaxed text-slate-600">
+                          {h.description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 mb-1">{h.title}</h3>
-                      <p className="text-sm text-gray-600 leading-relaxed">{h.description}</p>
-                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            {sections.map((s) => (
+              <Card
+                key={s.title}
+                className="rounded-[1.75rem] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl"
+              >
+                <CardContent className="p-6">
+                  <h2 className="mb-3 text-lg font-black text-slate-950">
+                    {s.title}
+                  </h2>
+                  <div className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                    {s.content}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+
+          <Card className="rounded-[2rem] border border-green-200 bg-gradient-to-br from-green-50 to-lime-50 shadow-lg shadow-green-100/50">
+            <CardContent className="p-6 text-center">
+              <Mail className="mx-auto mb-3 h-8 w-8 text-green-700" />
+              <h3 className="mb-1 font-black text-green-950">
+                Privacy Questions?
+              </h3>
+              <p className="text-sm text-green-800">
+                Contact us directly at{" "}
+                <a
+                  href="mailto:info@sctdjm.com"
+                  className="font-black underline"
+                >
+                  info@sctdjm.com
+                </a>{" "}
+                or call{" "}
+                <a href="tel:+18769686637" className="font-black underline">
+                  (876) 968-6637
+                </a>
+              </p>
+            </CardContent>
+          </Card>
         </div>
-
-        {/* Full policy */}
-        <div className="space-y-6">
-          {sections.map((s) => (
-            <Card key={s.title} className="border-gray-200 shadow-sm">
-              <CardContent className="p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-3">{s.title}</h2>
-                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-                  {s.content}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Contact footer */}
-        <Card className="bg-blue-50 border-blue-200 shadow-sm">
-          <CardContent className="p-6 text-center">
-            <Mail className="w-8 h-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-bold text-blue-900 mb-1">Privacy Questions?</h3>
-            <p className="text-sm text-blue-700 mb-3">
-              Contact us directly at{" "}
-              <a href="mailto:info@sctdjm.com" className="font-semibold underline">info@sctdjm.com</a>
-              {" "}or call{" "}
-              <a href="tel:+18769686637" className="font-semibold underline">(876) 968-6637</a>
-            </p>
-          </CardContent>
-        </Card>
-
       </section>
 
       <Footer />

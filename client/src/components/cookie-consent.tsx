@@ -35,56 +35,68 @@ export function CookieConsentBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="border-t border-white/10 shadow-2xl" style={{ background: "#0c2318" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+    <div className="fixed bottom-4 right-4 z-[60] w-[calc(100%-2rem)] max-w-md animate-in slide-in-from-bottom-4 fade-in duration-300 sm:bottom-5 sm:right-5">
+      <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/90 p-4 shadow-[0_24px_70px_rgba(15,23,42,0.18)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-green-200/70 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-cyan-200/60 blur-2xl" />
 
-            {/* Icon + text */}
-            <div className="flex items-start gap-3 flex-1">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: "hsl(133, 55%, 40%)" }}>
-                <Cookie className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-white font-semibold text-sm mb-0.5">Cookie Preferences</p>
-                <p className="text-gray-400 text-xs leading-relaxed max-w-2xl">
-                  We use essential cookies only to keep this application working. We do not use advertising, tracking, or analytics cookies. No document data or personal information is ever stored.{" "}
-                  <Link href="/privacy-policy" className="text-green-400 hover:text-green-300 underline">
-                    Privacy Policy
-                  </Link>{" "}
-                  &middot;{" "}
-                  <Link href="/terms-of-service" className="text-green-400 hover:text-green-300 underline">
-                    Terms of Service
-                  </Link>
-                </p>
-              </div>
+        <button
+          onClick={handleDismiss}
+          className="absolute right-3 top-3 z-10 rounded-xl p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Dismiss"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="relative pr-8">
+          <div className="mb-3 flex items-start gap-3">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-green-600 via-green-500 to-lime-400 shadow-lg shadow-green-100">
+              <Cookie className="h-5 w-5 text-white" />
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={handleDeny}
-                className="px-4 py-1.5 text-xs font-medium rounded-full border border-white/20 text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
-              >
-                Deny Non-Essential
-              </button>
-              <button
-                onClick={handleAccept}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-full text-white transition-all"
-                style={{ background: "hsl(133, 55%, 40%)" }}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Allow Essential
-              </button>
-              <button
-                onClick={handleDismiss}
-                className="text-gray-500 hover:text-gray-300 p-1 ml-1 transition-colors"
-                aria-label="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div>
+              <p className="text-sm font-black text-slate-950">
+                Cookie Preferences
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                We use essential cookies only to keep this application working.
+                No advertising, tracking, analytics, document data, or personal
+                information is stored.
+              </p>
             </div>
+          </div>
 
+          <div className="mb-4 rounded-2xl border border-green-100 bg-green-50/70 px-3 py-2 text-xs leading-relaxed text-green-800">
+            <Link
+              href="/privacy-policy"
+              className="font-bold text-green-700 underline underline-offset-2 hover:text-green-600"
+            >
+              Privacy Policy
+            </Link>{" "}
+            ·{" "}
+            <Link
+              href="/terms-of-service"
+              className="font-bold text-green-700 underline underline-offset-2 hover:text-green-600"
+            >
+              Terms of Service
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={handleDeny}
+              className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-600 transition-all hover:-translate-y-0.5 hover:bg-slate-50"
+            >
+              Deny Non-Essential
+            </button>
+
+            <button
+              onClick={handleAccept}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-green-600 via-green-500 to-lime-400 px-4 py-2.5 text-xs font-black text-white shadow-lg shadow-green-100 transition-all hover:-translate-y-0.5"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Allow Essential
+            </button>
           </div>
         </div>
       </div>

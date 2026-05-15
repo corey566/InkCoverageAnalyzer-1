@@ -101,49 +101,95 @@ Office Hours: Monday–Friday, 8:00am–5:00pm Jamaica Standard Time`,
 
 export default function TermsOfService() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Header />
 
-      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white py-16">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full mb-6">
-            <FileText className="w-4 h-4" />
-            <span className="text-sm font-medium">Terms of Service</span>
+      <section className="relative overflow-hidden text-white">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, #06180c 0%, #092e17 48%, #051108 100%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(255,255,255,0.22) 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+          }}
+        />
+        <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-green-500/20 blur-3xl" />
+        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-yellow-400/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-4xl px-4 py-20 text-center md:py-24">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-400/25 bg-green-400/10 px-4 py-2 text-sm font-bold text-green-300 backdrop-blur">
+            <FileText className="h-4 w-4" />
+            Terms of Service
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Terms of Service</h1>
-          <p className="text-xl text-blue-200 max-w-2xl mx-auto">
-            Please read these terms carefully before using the SCTD Ink Coverage Estimator.
+          <h1 className="mb-4 text-4xl font-black tracking-tight md:text-5xl">
+            Terms of Service
+          </h1>
+          <p className="mx-auto max-w-2xl text-xl text-green-50/75">
+            Please read these terms carefully before using the SCTD Ink Coverage
+            Estimator.
           </p>
-          <p className="text-blue-300 text-sm mt-4">Last updated: March 2026</p>
+          <p className="mt-4 text-sm text-green-300/70">
+            Last updated: March 2026
+          </p>
         </div>
       </section>
 
-      <section className="py-16 max-w-4xl mx-auto px-4 space-y-5">
+      <section
+        className="relative overflow-hidden py-16"
+        style={{
+          background:
+            "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 42%, #ecfeff 100%)",
+        }}
+      >
+        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-green-200/40 blur-3xl" />
+        <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
 
-        {sections.map((s) => (
-          <Card key={s.title} className="border-gray-200 shadow-sm">
-            <CardContent className="p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-3">{s.title}</h2>
-              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-                {s.content}
-              </div>
+        <div className="relative mx-auto max-w-4xl space-y-5 px-4">
+          {sections.map((s) => (
+            <Card
+              key={s.title}
+              className="rounded-[1.75rem] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl"
+            >
+              <CardContent className="p-6">
+                <h2 className="mb-3 text-lg font-black text-slate-950">
+                  {s.title}
+                </h2>
+                <div className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                  {s.content}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          <Card className="rounded-[2rem] border border-green-200 bg-gradient-to-br from-green-50 to-lime-50 shadow-lg shadow-green-100/50">
+            <CardContent className="p-6 text-center">
+              <Mail className="mx-auto mb-3 h-8 w-8 text-green-700" />
+              <h3 className="mb-1 font-black text-green-950">
+                Questions about these Terms?
+              </h3>
+              <p className="text-sm text-green-800">
+                Contact us at{" "}
+                <a
+                  href="mailto:info@sctdjm.com"
+                  className="font-black underline"
+                >
+                  info@sctdjm.com
+                </a>{" "}
+                or call{" "}
+                <a href="tel:+18769686637" className="font-black underline">
+                  (876) 968-6637
+                </a>
+              </p>
             </CardContent>
           </Card>
-        ))}
-
-        <Card className="bg-blue-50 border-blue-200 shadow-sm">
-          <CardContent className="p-6 text-center">
-            <Mail className="w-8 h-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-bold text-blue-900 mb-1">Questions about these Terms?</h3>
-            <p className="text-sm text-blue-700">
-              Contact us at{" "}
-              <a href="mailto:info@sctdjm.com" className="font-semibold underline">info@sctdjm.com</a>
-              {" "}or call{" "}
-              <a href="tel:+18769686637" className="font-semibold underline">(876) 968-6637</a>
-            </p>
-          </CardContent>
-        </Card>
-
+        </div>
       </section>
 
       <Footer />

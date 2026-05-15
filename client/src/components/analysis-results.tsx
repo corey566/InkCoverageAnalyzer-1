@@ -39,7 +39,7 @@ const CHANNEL_META: Record<
     label: "Black",
     cssBar: "bg-gray-800",
     cssDot: "#1f2937",
-    cssBg: "bg-gray-100",
+    cssBg: "bg-slate-100",
   },
   cyan: {
     label: "Cyan",
@@ -49,9 +49,9 @@ const CHANNEL_META: Record<
   },
   magenta: {
     label: "Magenta",
-    cssBar: "bg-pink-500",
-    cssDot: "#ec4899",
-    cssBg: "bg-pink-50",
+    cssBar: "bg-green-500",
+    cssDot: "#16a34a",
+    cssBg: "bg-green-50",
   },
   yellow: {
     label: "Yellow",
@@ -90,20 +90,20 @@ function CoverageCard({
   barClass: string;
 }) {
   return (
-    <div className="rounded-xl p-4 bg-white border border-gray-100">
+    <div className="rounded-3xl p-4 bg-white/90 border-2 border-white shadow-lg shadow-green-100/40 hover:-translate-y-1 transition-all duration-200">
       <div className="flex justify-between items-center mb-2">
-        <span className="font-semibold text-sm text-gray-800 inline-flex items-center gap-2">
+        <span className="font-semibold text-sm text-slate-800 inline-flex items-center gap-2">
           <span
             className="inline-block w-3 h-3 rounded-full"
             style={{ background: dotColor }}
           />
           {label}
         </span>
-        <span className="text-lg font-bold text-gray-900">
+        <span className="text-lg font-bold text-slate-900">
           {value.toFixed(2)}%
         </span>
       </div>
-      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+      <div className="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-100">
         <div
           className={`h-full rounded-full transition-all duration-700 ${barClass}`}
           style={{ width: `${Math.min(value, 100)}%` }}
@@ -226,7 +226,7 @@ export function AnalysisResults({
       `${analysis.overallCoverage.coveragePercent.toFixed(2)}%`,
     ]);
     rows.push([]);
-    rows.push(["Per-Page Breakdown"]);
+    rows.push(["Page-by-page story 📄"]);
     rows.push([
       "Page",
       ...keys.map((k) => `${CHANNEL_META[k].label} %`),
@@ -348,7 +348,7 @@ export function AnalysisResults({
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(10, 45, 20);
-    doc.text("Document Average — Cartridge Coverage", margin, y);
+    doc.text("Ink usage snapshot 🎨", margin, y);
     y += 4;
     const summaryRows: string[][] = keys.map((k) => [
       CHANNEL_META[k].label,
@@ -372,7 +372,7 @@ export function AnalysisResults({
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(10, 45, 20);
-    doc.text("Per-Page Breakdown", margin, y);
+    doc.text("Page-by-page story 📄", margin, y);
     y += 4;
     const head = [["Page", ...keys.map((k) => CHANNEL_META[k].label), "Total"]];
     const body = analysis.pageBreakdown.map((p) => [
@@ -458,17 +458,17 @@ export function AnalysisResults({
 
   if (isLoading) {
     return (
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-transparent">
         <div className="max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="h-28 rounded-xl bg-gray-100 animate-pulse"
+                className="h-28 rounded-3xl bg-slate-100 animate-pulse"
               />
             ))}
           </div>
-          <div className="h-64 rounded-xl bg-gray-100 animate-pulse" />
+          <div className="h-64 rounded-3xl bg-slate-100 animate-pulse" />
         </div>
       </section>
     );
@@ -478,11 +478,14 @@ export function AnalysisResults({
 
   if (analysis.status === "processing") {
     return (
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-transparent">
         <div className="max-w-5xl mx-auto px-4">
           <div
-            className="bg-white rounded-2xl border border-gray-100 p-10 text-center"
-            style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}
+            className="bg-white/90 rounded-[2rem] border-2 border-emerald-100 p-10 text-center"
+            style={{
+              boxShadow:
+                "0 24px 80px rgba(22,163,74,0.14), 0 14px 40px rgba(14,165,233,0.10), 0 8px 24px rgba(15,23,42,0.06)",
+            }}
           >
             <div
               className="w-14 h-14 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-5"
@@ -491,12 +494,12 @@ export function AnalysisResults({
                 borderTopColor: "transparent",
               }}
             />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Analyzing Your Document
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              Analyzing Your Document ✨
             </h3>
-            <p className="text-gray-500">
-              Calculating cartridge coverage. Higher resolution and more pages
-              take longer.
+            <p className="text-slate-500">
+              Checking ink coverage page by page. Bigger files may need a little
+              more time.
             </p>
           </div>
         </div>
@@ -506,17 +509,20 @@ export function AnalysisResults({
 
   if (analysis.status === "failed") {
     return (
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-transparent">
         <div className="max-w-5xl mx-auto px-4">
           <div
             className="bg-white rounded-2xl border border-red-200 p-8 text-center"
-            style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}
+            style={{
+              boxShadow:
+                "0 24px 80px rgba(22,163,74,0.14), 0 14px 40px rgba(14,165,233,0.10), 0 8px 24px rgba(15,23,42,0.06)",
+            }}
           >
             <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-red-800 mb-1">
               Analysis Failed
             </h3>
-            <p className="text-gray-600">
+            <p className="text-slate-600">
               {analysis.errorMessage || "Please try again."}
             </p>
           </div>
@@ -542,16 +548,20 @@ export function AnalysisResults({
   const modeLabel = colorMode === "bw" ? "Black & White Print" : "Color Print";
 
   return (
-    <section id="results" className="py-16 bg-white">
-      <div className="max-w-5xl mx-auto px-4 space-y-8">
+    <section id="results" className="py-16 bg-transparent">
+      <div className="max-w-6xl mx-auto px-4 space-y-6 relative">
+        <div className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-green-200/50 blur-2xl" />
+        <div className="pointer-events-none absolute top-40 -left-10 h-36 w-36 rounded-full bg-cyan-200/50 blur-2xl" />
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="section-label mb-1">Results</p>
-            <h2 className="text-3xl font-bold text-gray-900 mb-1">
-              Cartridge Coverage Results
+            <p className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-green-100 via-lime-100 to-cyan-100 px-5 py-2 text-xs font-black uppercase tracking-[0.18em] text-green-700 border border-white shadow-sm mb-1">
+              Results
+            </p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-1">
+              Cartridge Coverage Results ✅
             </h2>
-            <p className="text-gray-500 text-sm">
+            <p className="text-slate-600 text-sm">
               {analysis.totalPages} page{analysis.totalPages !== 1 ? "s" : ""}{" "}
               analyzed · {printerLabel} · {modeLabel}
               {usedSettings && (
@@ -568,20 +578,22 @@ export function AnalysisResults({
           <div className="flex gap-2">
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border-2 font-semibold text-sm transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border-2 font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
               style={{
-                borderColor: "hsl(133, 48%, 36%)",
-                color: "hsl(133, 48%, 36%)",
+                borderColor: "#16a34a",
+                color: "#15803d",
+                background: "rgba(255,255,255,0.75)",
               }}
             >
               <FileSpreadsheet className="w-4 h-4" /> Export CSV
             </button>
             <button
               onClick={handleExportPDF}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border-2 font-semibold text-sm transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border-2 font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
               style={{
-                borderColor: "hsl(133, 48%, 36%)",
-                color: "hsl(133, 48%, 36%)",
+                borderColor: "#16a34a",
+                color: "#15803d",
+                background: "rgba(255,255,255,0.75)",
               }}
             >
               <Download className="w-4 h-4" /> Export PDF
@@ -591,13 +603,16 @@ export function AnalysisResults({
 
         {/* Cartridge coverage summary */}
         <div
-          className="bg-white rounded-2xl border border-gray-100 p-6"
-          style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}
+          className="bg-white/85 backdrop-blur rounded-[2rem] border-2 border-white p-5 md:p-6 relative overflow-hidden"
+          style={{
+            boxShadow:
+              "0 24px 80px rgba(22,163,74,0.14), 0 14px 40px rgba(14,165,233,0.10), 0 8px 24px rgba(15,23,42,0.06)",
+          }}
         >
-          <h3 className="text-base font-bold text-gray-900 mb-1">
-            Document Average — Cartridge Coverage
+          <h3 className="text-base font-bold text-slate-900 mb-1">
+            Ink usage snapshot 🎨
           </h3>
-          <p className="text-sm text-gray-400 mb-5">
+          <p className="text-sm text-slate-400 mb-5">
             Each value is the average ink load on that individual cartridge
             (0–100%). Cartridges are independent — an area printed in green uses
             both the Cyan and the Yellow cartridge, so cartridge values overlap.
@@ -629,27 +644,24 @@ export function AnalysisResults({
 
           {/* Total ink load */}
           <div
-            className="rounded-xl p-4 border-2 border-green-200"
-            style={{ background: "hsl(133, 48%, 97%)" }}
+            className="rounded-3xl p-4 border-2 border-green-200"
+            style={{
+              background:
+                "linear-gradient(135deg, #f0fdf4 0%, #ecfccb 48%, #ecfeff 100%)",
+            }}
           >
             <div className="flex justify-between items-center mb-2">
               <div>
-                <p
-                  className="font-bold text-sm"
-                  style={{ color: "hsl(133, 48%, 25%)" }}
-                >
+                <p className="font-bold text-sm" style={{ color: "#166534" }}>
                   Total Page Coverage
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Percentage of the page that has any ink on it. The remaining{" "}
                   {(100 - analysis.overallCoverage.coveragePercent).toFixed(2)}%
                   is blank paper.
                 </p>
               </div>
-              <span
-                className="text-2xl font-bold"
-                style={{ color: "hsl(133, 48%, 25%)" }}
-              >
+              <span className="text-2xl font-bold" style={{ color: "#166534" }}>
                 {analysis.overallCoverage.coveragePercent.toFixed(2)}%
               </span>
             </div>
@@ -658,7 +670,8 @@ export function AnalysisResults({
                 className="h-full rounded-full transition-all duration-700"
                 style={{
                   width: `${Math.min(analysis.overallCoverage.coveragePercent, 100)}%`,
-                  background: "hsl(133, 55%, 40%)",
+                  background:
+                    "linear-gradient(135deg, #15803d 0%, #16a34a 45%, #22c55e 100%)",
                 }}
               />
             </div>
@@ -667,16 +680,19 @@ export function AnalysisResults({
 
         {/* Per-page table */}
         <div
-          className="bg-white rounded-2xl border border-gray-100 p-6"
-          style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}
+          className="bg-white/85 backdrop-blur rounded-[2rem] border-2 border-white p-5 md:p-6 relative overflow-hidden"
+          style={{
+            boxShadow:
+              "0 24px 80px rgba(22,163,74,0.14), 0 14px 40px rgba(14,165,233,0.10), 0 8px 24px rgba(15,23,42,0.06)",
+          }}
         >
-          <h3 className="text-base font-bold text-gray-900 mb-5">
-            Per-Page Breakdown
+          <h3 className="text-base font-bold text-slate-900 mb-5">
+            Page-by-page story 📄
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase">
+                <tr className="border-b border-slate-100 text-slate-500 text-xs uppercase">
                   <th className="text-left py-3 px-2 font-semibold">Page</th>
                   {keys.map((k) => (
                     <th
@@ -689,7 +705,7 @@ export function AnalysisResults({
                   ))}
                   <th
                     className="text-right py-3 px-2 font-semibold"
-                    style={{ color: "hsl(133, 48%, 30%)" }}
+                    style={{ color: "#15803d" }}
                   >
                     Total
                   </th>
@@ -699,15 +715,15 @@ export function AnalysisResults({
                 {displayPages.map((p) => (
                   <tr
                     key={p.page}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                   >
-                    <td className="py-2.5 px-2 font-semibold text-gray-800">
+                    <td className="py-2.5 px-2 font-semibold text-slate-800">
                       Page {p.page}
                     </td>
                     {keys.map((k) => (
                       <td
                         key={k}
-                        className="py-2.5 px-2 text-right text-gray-700"
+                        className="py-2.5 px-2 text-right text-slate-700"
                       >
                         {(p.channels[k] ?? 0) > 0.005
                           ? `${(p.channels[k] ?? 0).toFixed(2)}%`
@@ -716,7 +732,7 @@ export function AnalysisResults({
                     ))}
                     <td
                       className="py-2.5 px-2 text-right font-bold"
-                      style={{ color: "hsl(133, 48%, 30%)" }}
+                      style={{ color: "#15803d" }}
                     >
                       {p.coveragePercent.toFixed(2)}%
                     </td>
@@ -724,21 +740,21 @@ export function AnalysisResults({
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-green-200 bg-green-50/50">
-                  <td className="py-3 px-2 font-bold text-gray-900 text-sm">
+                <tr className="border-t-2 border-green-200 bg-gradient-to-r from-green-50 via-lime-50 to-cyan-50">
+                  <td className="py-3 px-2 font-bold text-slate-900 text-sm">
                     Document Average
                   </td>
                   {keys.map((k) => (
                     <td
                       key={k}
-                      className="py-3 px-2 text-right font-bold text-gray-800"
+                      className="py-3 px-2 text-right font-bold text-slate-800"
                     >
                       {(ch[k] ?? 0).toFixed(2)}%
                     </td>
                   ))}
                   <td
                     className="py-3 px-2 text-right font-bold"
-                    style={{ color: "hsl(133, 48%, 25%)" }}
+                    style={{ color: "#166534" }}
                   >
                     {analysis.overallCoverage.coveragePercent.toFixed(2)}%
                   </td>
@@ -751,7 +767,7 @@ export function AnalysisResults({
               <button
                 onClick={() => setShowAllPages(!showAllPages)}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full transition-colors"
-                style={{ color: "hsl(133, 48%, 36%)" }}
+                style={{ color: "#15803d" }}
               >
                 {showAllPages ? (
                   <>
@@ -770,24 +786,27 @@ export function AnalysisResults({
 
         {/* Cost estimator */}
         <div
-          className="bg-white rounded-2xl border border-gray-100 p-6"
-          style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}
+          className="bg-white/85 backdrop-blur rounded-[2rem] border-2 border-white p-5 md:p-6 relative overflow-hidden"
+          style={{
+            boxShadow:
+              "0 24px 80px rgba(22,163,74,0.14), 0 14px 40px rgba(14,165,233,0.10), 0 8px 24px rgba(15,23,42,0.06)",
+          }}
         >
           <div className="flex items-center gap-2.5 mb-1">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: "hsl(133, 48%, 94%)" }}
+              className="w-9 h-9 rounded-3xl flex items-center justify-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, #dcfce7 0%, #ecfccb 45%, #cffafe 100%)",
+              }}
             >
-              <Calculator
-                className="w-5 h-5"
-                style={{ color: "hsl(133, 48%, 36%)" }}
-              />
+              <Calculator className="w-5 h-5" style={{ color: "#15803d" }} />
             </div>
-            <h3 className="text-base font-bold text-gray-900">
-              Cost Estimator
+            <h3 className="text-base font-bold text-slate-900">
+              Cost Estimator 🧮
             </h3>
           </div>
-          <p className="text-sm text-gray-400 mb-6">
+          <p className="text-sm text-slate-400 mb-6">
             {colorMode === "bw"
               ? "Black & white cost is based on the black cartridge coverage."
               : printerType === "cmyk"
@@ -804,7 +823,7 @@ export function AnalysisResults({
               setYieldVal={setBlackYield}
               priceVal={blackPrice}
               setPriceVal={setBlackPrice}
-              accent="bg-gray-100"
+              accent="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200"
             />
             {colorMode === "color" && printerType === "color-black" && (
               <CartridgeInputs
@@ -813,7 +832,7 @@ export function AnalysisResults({
                 setYieldVal={setColorYield}
                 priceVal={colorPrice}
                 setPriceVal={setColorPrice}
-                accent="bg-indigo-50"
+                accent="bg-gradient-to-br from-indigo-50 to-cyan-50 border border-indigo-100"
               />
             )}
             {colorMode === "color" && printerType === "cmyk" && (
@@ -824,7 +843,7 @@ export function AnalysisResults({
                   setYieldVal={setCyanYield}
                   priceVal={cyanPrice}
                   setPriceVal={setCyanPrice}
-                  accent="bg-cyan-50"
+                  accent="bg-gradient-to-br from-cyan-50 to-sky-50 border border-cyan-100"
                 />
                 <CartridgeInputs
                   label="Magenta Cartridge"
@@ -832,7 +851,7 @@ export function AnalysisResults({
                   setYieldVal={setMagentaYield}
                   priceVal={magentaPrice}
                   setPriceVal={setMagentaPrice}
-                  accent="bg-pink-50"
+                  accent="bg-gradient-to-br from-green-50 to-lime-50 border border-green-100"
                 />
                 <CartridgeInputs
                   label="Yellow Cartridge"
@@ -840,15 +859,15 @@ export function AnalysisResults({
                   setYieldVal={setYellowYield}
                   priceVal={yellowPrice}
                   setPriceVal={setYellowPrice}
-                  accent="bg-yellow-50"
+                  accent="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-100"
                 />
               </>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <Label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 block">
+            <div className="p-4 bg-white/80 rounded-3xl border-2 border-sky-100 shadow-sm">
+              <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 block">
                 Number of Copies
               </Label>
               <Input
@@ -857,11 +876,11 @@ export function AnalysisResults({
                 type="number"
                 min="1"
                 step="1"
-                className="h-9 text-sm bg-white"
+                className="h-10 text-sm bg-white rounded-2xl border-2 border-sky-100 focus-visible:ring-green-200"
               />
             </div>
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <Label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 block">
+            <div className="p-4 bg-white/80 rounded-3xl border-2 border-sky-100 shadow-sm">
+              <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 block">
                 Reference Coverage (%)
               </Label>
               <Input
@@ -871,11 +890,11 @@ export function AnalysisResults({
                 min="0.1"
                 max="100"
                 step="0.1"
-                className="h-9 text-sm bg-white"
+                className="h-10 text-sm bg-white rounded-2xl border-2 border-sky-100 focus-visible:ring-green-200"
               />
             </div>
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <Label className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 block">
+            <div className="p-4 bg-white/80 rounded-3xl border-2 border-sky-100 shadow-sm">
+              <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 block">
                 Waste Factor (%)
               </Label>
               <Input
@@ -885,7 +904,7 @@ export function AnalysisResults({
                 min="0"
                 max="100"
                 step="1"
-                className="h-9 text-sm bg-white"
+                className="h-10 text-sm bg-white rounded-2xl border-2 border-sky-100 focus-visible:ring-green-200"
               />
             </div>
           </div>
@@ -893,8 +912,11 @@ export function AnalysisResults({
           <button
             onClick={handleCalculateCost}
             disabled={estimateMutation.isPending}
-            className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 rounded-full font-bold text-white text-sm transition-all disabled:opacity-50"
-            style={{ background: "hsl(133, 55%, 40%)" }}
+            className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 rounded-full font-black text-white text-sm transition-all duration-200 disabled:opacity-50 hover:-translate-y-0.5 hover:shadow-xl"
+            style={{
+              background:
+                "linear-gradient(135deg, #15803d 0%, #16a34a 45%, #22c55e 100%)",
+            }}
           >
             {estimateMutation.isPending ? (
               <>
@@ -909,18 +931,21 @@ export function AnalysisResults({
               </>
             ) : (
               <>
-                <Calculator className="w-4 h-4" /> Calculate Cost
+                <Calculator className="w-4 h-4" /> Calculate My Cost
               </>
             )}
           </button>
 
           {costResult && (
-            <div className="mt-5 rounded-xl overflow-hidden border border-green-200">
+            <div className="mt-5 rounded-3xl overflow-hidden border-2 border-white shadow-xl shadow-green-100/50">
               <div
                 className="px-5 py-3 font-bold text-sm text-white"
-                style={{ background: "hsl(133, 55%, 40%)" }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, #15803d 0%, #16a34a 45%, #22c55e 100%)",
+                }}
               >
-                Cost Results
+                Cost Results ✨
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-green-100">
                 {[
@@ -945,21 +970,24 @@ export function AnalysisResults({
                     sub: "All copies, adjusted",
                   },
                 ].map((item) => (
-                  <div key={item.label} className="p-4 bg-green-50">
-                    <p className="text-xs text-gray-500 mb-1">{item.label}</p>
+                  <div
+                    key={item.label}
+                    className="p-4 bg-gradient-to-br from-green-50 via-lime-50 to-cyan-50"
+                  >
+                    <p className="text-xs text-slate-500 mb-1">{item.label}</p>
                     <p
                       className="text-lg font-bold"
-                      style={{ color: "hsl(133, 48%, 30%)" }}
+                      style={{ color: "#15803d" }}
                     >
                       {item.value}
                     </p>
-                    <p className="text-xs text-gray-400">{item.sub}</p>
+                    <p className="text-xs text-slate-400">{item.sub}</p>
                   </div>
                 ))}
               </div>
               {Object.keys(costResult.breakdown).length > 0 && (
                 <div className="px-5 py-4 bg-white border-t border-green-100">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
                     Cartridge Breakdown
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -978,12 +1006,12 @@ export function AnalysisResults({
                       .map((k) => (
                         <div
                           key={k}
-                          className={`text-center p-3 ${CHANNEL_META[k].cssBg} rounded-xl`}
+                          className={`text-center p-3 ${CHANNEL_META[k].cssBg} rounded-3xl`}
                         >
-                          <p className="text-xs text-gray-600 font-semibold mb-1">
+                          <p className="text-xs text-slate-600 font-semibold mb-1">
                             {CHANNEL_META[k].label}
                           </p>
-                          <p className="text-sm font-bold text-gray-900">
+                          <p className="text-sm font-bold text-slate-900">
                             $
                             {(
                               (costResult.breakdown as any)[k] as number
@@ -995,8 +1023,8 @@ export function AnalysisResults({
                   </div>
                 </div>
               )}
-              <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
-                <p className="text-xs text-gray-400">
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
+                <p className="text-xs text-slate-400">
                   Formula: effective yield = rated yield × (reference coverage %
                   ÷ actual coverage %). Range shows ±8% variation.
                 </p>
@@ -1025,11 +1053,11 @@ function CartridgeInputs({
   accent: string;
 }) {
   return (
-    <div className={`p-4 ${accent} rounded-xl`}>
-      <p className="font-bold mb-3 text-gray-800 text-sm">{label}</p>
+    <div className={`p-4 ${accent} rounded-3xl shadow-sm`}>
+      <p className="font-bold mb-3 text-slate-800 text-sm">{label}</p>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs text-gray-500 mb-1 block">
+          <Label className="text-xs text-slate-500 mb-1 block">
             Yield (pages)
           </Label>
           <Input
@@ -1037,11 +1065,11 @@ function CartridgeInputs({
             onChange={(e) => setYieldVal(e.target.value)}
             type="number"
             min="1"
-            className="bg-white h-9 text-sm"
+            className="bg-white h-10 text-sm rounded-2xl border-2 border-sky-100 focus-visible:ring-green-200"
           />
         </div>
         <div>
-          <Label className="text-xs text-gray-500 mb-1 block">
+          <Label className="text-xs text-slate-500 mb-1 block">
             Price (USD)
           </Label>
           <Input
@@ -1050,7 +1078,7 @@ function CartridgeInputs({
             type="number"
             min="0"
             step="0.01"
-            className="bg-white h-9 text-sm"
+            className="bg-white h-10 text-sm rounded-2xl border-2 border-sky-100 focus-visible:ring-green-200"
           />
         </div>
       </div>
